@@ -26,6 +26,11 @@ def forbidden_error() -> HTTPException:
     return problem_http_exception(status.HTTP_403_FORBIDDEN, "Access forbidden")
 
 
+def bad_request_error(title: str = "Invalid request") -> HTTPException:
+    """Create a standard problem response for malformed client input."""
+    return problem_http_exception(status.HTTP_400_BAD_REQUEST, title)
+
+
 def not_found_error(title: str = "Resource not found") -> HTTPException:
     """Create a standard problem response for absent active resources."""
     return problem_http_exception(status.HTTP_404_NOT_FOUND, title)
