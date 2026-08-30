@@ -210,11 +210,11 @@ async def require_allowed_identity(...) -> VerifiedIdentity: ...
 **Parallel:** no — 寫入 schema 且每個 route 受 identity 保護。  
 **Files:** Create `backend/app/categories/{schemas.py,repository.py,service.py,router.py}`, `backend/tests/categories/test_routes.py`; modify `backend/app/main.py`.
 
-- [ ] **Red:** 寫 route tests：建立含一個未指定網站與兩個額外 Source Settings 的 Category 回 201；空 name 回 422；更新可排序 Source Settings；刪除 Category 不刪除 Article；未授權為 401。
-- [ ] **Run Red:** `cd backend && uv run pytest tests/categories/test_routes.py -q`，預期失敗。
-- [ ] **Green:** 實作 `GET/POST/PATCH/DELETE /v1/categories`；`CreateCategoryRequest` 含 `name`、`search_keywords`、`special_requirements`、有序 `source_settings`。空白 Source Setting 不保存，Category name 必填。
-- [ ] **Run Green:** 重跑測試與 `cd backend && uv run ruff check .`。
-- [ ] **Commit:** `git add backend && git commit -m "feat: add category settings API"`。
+- [x] **Red:** 寫 route tests：建立含一個未指定網站與兩個額外 Source Settings 的 Category 回 201；空 name 回 422；更新可排序 Source Settings；刪除 Category 不刪除 Article；未授權為 401。
+- [x] **Run Red:** `cd backend && uv run pytest tests/categories/test_routes.py -q`，預期失敗。
+- [x] **Green:** 實作 `GET/POST/PATCH/DELETE /v1/categories`；`CreateCategoryRequest` 含 `name`、`search_keywords`、`special_requirements`、有序 `source_settings`。空白 Source Setting 不保存，Category name 必填。
+- [x] **Run Green:** 重跑測試與 `cd backend && uv run ruff check .`。
+- [x] **Commit:** `git add backend && git commit -m "feat: add category settings API"`。
 
 **Interface produced:**
 
@@ -227,6 +227,8 @@ class CreateCategoryRequest(BaseModel):
 ```
 
 **完成紀錄：**
+
+- 2026-08-30：Red：新增的 route tests 在 Category router 尚未存在時以 5 failures（`404 Not Found`）確認 endpoint 缺失。Green：加入受 `require_allowed_identity` 保護的 `GET/POST/PATCH/DELETE /v1/categories`、DTO、Router → Service → Repository 分層與 PostgreSQL migration `20260830_0002`，為 `category_articles` 加上 soft-delete 欄位。Route tests 使用 disposable `postgres:16-alpine`、Alembic 與真 async session，不使用 SQLite 或 Firebase。Task review 發現 delete test 缺少 Category／Source Setting／Category Article soft-delete assertions，且與 schema test 重複 Docker fixture；fix round 抽出 `tests/postgres.py`，補上三種 `deleted_at` assertions、刪除後 GET omission 與 PATCH 404 coverage，scoped re-review 確認均已解決。最終驗證：`cd backend && uv run pytest tests/categories/test_routes.py tests/integration/test_schema.py -q` 為 `6 passed`、`cd backend && uv run ruff check .` 為 `All checks passed!`、`cd backend && uv run pytest -q` 為 `12 passed`；僅有既有 Starlette/httpx deprecation warning。未修改或加入未追蹤 `android-dev-guide/`。Commits `5694400`（`feat: add category settings API`）與 `3be1418`（`test: strengthen category PostgreSQL coverage`）。
 
 ---
 
