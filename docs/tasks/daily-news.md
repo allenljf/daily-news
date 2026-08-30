@@ -242,11 +242,11 @@ class CreateCategoryRequest(BaseModel):
 **Parallel:** no.  
 **Files:** Create `backend/app/news/{schemas.py,repository.py,service.py,router.py}`, `backend/tests/news/test_routes.py`; modify `backend/app/main.py`.
 
-- [ ] **Red:** 建立 21 個 Category Article fixture，測試第一頁恰為 20 筆、`next_cursor` 可取得第 21 筆、`sourceTagId` 只回該 tag、expired/deleted 不出現、永久與 soft delete 對所有 Category 生效。
-- [ ] **Run Red:** `cd backend && uv run pytest tests/news/test_routes.py -q`，預期失敗。
-- [ ] **Green:** 實作 spec 的三個 news GET/PATCH/DELETE routes，cursor encode `(inserted_at, article_id)`，每一 read query 固定排除 `articles.deleted_at IS NOT NULL` 和已到期非永久資料。
-- [ ] **Run Green:** 重跑 route tests；測試 invalid cursor 取得 400、missing Article 取得 404。
-- [ ] **Commit:** `git add backend && git commit -m "feat: add paginated news API"`。
+- [x] **Red:** 建立 21 個 Category Article fixture，測試第一頁恰為 20 筆、`next_cursor` 可取得第 21 筆、`sourceTagId` 只回該 tag、expired/deleted 不出現、永久與 soft delete 對所有 Category 生效。
+- [x] **Run Red:** `cd backend && uv run pytest tests/news/test_routes.py -q`，預期失敗。
+- [x] **Green:** 實作 spec 的三個 news GET/PATCH/DELETE routes，cursor encode `(inserted_at, article_id)`，每一 read query 固定排除 `articles.deleted_at IS NOT NULL` 和已到期非永久資料。
+- [x] **Run Green:** 重跑 route tests；測試 invalid cursor 取得 400、missing Article 取得 404。
+- [x] **Commit:** `git add backend && git commit -m "feat: add paginated news API"`。
 
 **Interface produced:**
 
@@ -257,6 +257,8 @@ class NewsPage(BaseModel):
 ```
 
 **完成紀錄：**
+
+- 2026-08-30：Red：新增 PostgreSQL-backed route contracts 後，`cd backend && uv run pytest tests/news/test_routes.py -q` 為 4 failures；所有失敗均為尚未註冊的 N1 endpoint 回 `404`，符合預期。Green：加入受 Firebase dependency 保護的 `GET /v1/categories/{category_id}/news`、`GET /v1/categories/{category_id}/news/{article_id}`、`PATCH/DELETE /v1/news/{article_id}`，以 `(inserted_at, article_id)` base64 JSON cursor 實作 keyset pagination，並在所有 read query 排除 soft-deleted 與已到期非永久 Article。Run Green：同一指定 route test 為 `4 passed`；全量 `cd backend && uv run pytest -q` 為 `16 passed`，`cd backend && uv run ruff check .` 為 `All checks passed!`。全量收集首次揭露 `test_routes.py` 與既有 Category test 同名造成 import mismatch，已把新的 `tests/news/` 設為 package，僅消除收集命名衝突。唯一 warning 為既有 Starlette/httpx deprecation warning。保留未追蹤 `android-dev-guide/` 不變。Backend commit `b72fb4b`（`feat: add paginated news API`）。
 
 ### N2: 實作 Ingestion Run status 與手動觸發 HTTP interface
 
