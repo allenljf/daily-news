@@ -37,7 +37,7 @@ class FirebaseAdminTokenVerifier:
 
         try:
             claims = auth.verify_id_token(token)
-        except Exception as error:
+        except auth.InvalidIdTokenError as error:
             raise InvalidFirebaseTokenError from error
 
         uid = claims.get("uid")

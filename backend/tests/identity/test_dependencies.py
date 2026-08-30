@@ -1,11 +1,15 @@
 from collections.abc import Callable
 
+import firebase_admin
+import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
+from firebase_admin import auth
 
 from app.core.config import Settings, get_settings
 from app.identity.dependencies import require_allowed_identity
 from app.identity.firebase import (
+    FirebaseAdminTokenVerifier,
     InvalidFirebaseTokenError,
     VerifiedIdentity,
     get_firebase_token_verifier,
@@ -71,3 +75,34 @@ def test_valid_token_with_non_allowlisted_email_returns_403() -> None:
 
     assert response.status_code == 403
     assert response.headers["content-type"] == "application/problem+json"
+
+
+def test_firebase_adapter_maps_invalid_id_token_to_invalid_token_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(firebase_admin, "get_app", lambda: object())
+
+    def reject_token(token: str) -> dict[str, str]:
+        raise auth.InvalidIdTokenError("invalid")
+
+    monkeypatch.setattr(auth, "verify_id_token", reject_token)
+
+    with pytest.raises(InvalidFirebaseTokenError):
+        FirebaseAdminTokenVerifier().verify("invalid-token")
+
+
+def test_firebase_adapter_preserves_certificate_fetch_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(firebase_admin, "get_app", lambda: object())
+    certificate_error = auth.CertificateFetchError("Firebase unavailable", RuntimeError())
+
+    def fail_to_fetch_certificates(token: str) -> dict[str, str]:
+        raise certificate_error
+
+    monkeypatch.setattr(auth, "verify_id_token", fail_to_fetch_certificates)
+
+    with pytest.raises(auth.CertificateFetchError) as raised:
+        FirebaseAdminTokenVerifier().verify("valid-format-token")
+
+    assert raised.value is certificate_error
