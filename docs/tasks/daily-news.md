@@ -170,15 +170,17 @@
 **Parallel:** yes — 可與 B3 並行。  
 **Files:** Create `backend/alembic/`, `backend/app/db/{engine.py,models.py}`, `backend/tests/integration/test_schema.py`.
 
-- [ ] **Red:** 寫 integration test，檢查 migration 後存在 `categories`、`source_settings`、`articles`、`category_articles`、`ingestion_runs`、`ingestion_attempts` 和 spec 要求的 unique／cursor index。
-- [ ] **Run Red:** 使用 test PostgreSQL 執行 `cd backend && uv run pytest tests/integration/test_schema.py -q`，預期失敗。
-- [ ] **Green:** 以 SQLAlchemy 2 定義 model，Alembic 建立初始 migration；`ingestion_runs` 含 `trigger`、`idempotency_key` 與 status；database session 由設定注入。
-- [ ] **Run Green:** `cd backend && uv run alembic upgrade head && uv run pytest tests/integration/test_schema.py -q`。
-- [ ] **Commit:** `git add backend && git commit -m "feat: add daily news database schema"`。
+- [x] **Red:** 寫 integration test，檢查 migration 後存在 `categories`、`source_settings`、`articles`、`category_articles`、`ingestion_runs`、`ingestion_attempts` 和 spec 要求的 unique／cursor index。
+- [x] **Run Red:** 使用 test PostgreSQL 執行 `cd backend && uv run pytest tests/integration/test_schema.py -q`，預期失敗。
+- [x] **Green:** 以 SQLAlchemy 2 定義 model，Alembic 建立初始 migration；`ingestion_runs` 含 `trigger`、`idempotency_key` 與 status；database session 由設定注入。
+- [x] **Run Green:** `cd backend && uv run alembic upgrade head && uv run pytest tests/integration/test_schema.py -q`。
+- [x] **Commit:** `git add backend && git commit -m "feat: add daily news database schema"`。
 
 **Interface produced:** `get_session() -> AsyncIterator[AsyncSession]`; initial Alembic revision.
 
 **完成紀錄：**
+
+- 2026-08-30：Red integration test 已在本 task 開始前建立。此輪第一次執行 `cd backend && uv run pytest tests/integration/test_schema.py -q` 為 `1 passed`，因工作樹已包含未追蹤的 B2 Green 草稿；不以 SQLite 替代 PostgreSQL。直接執行 `cd backend && uv run alembic upgrade head` 在未設定 `DATABASE_URL` 的本機環境依預期停止並提示設定連線字串。以 disposable `postgres:16-alpine` 注入 `DATABASE_URL` 執行同一 migration 指令，Alembic 成功套用 `20260830_0001`；`cd backend && uv run pytest tests/integration/test_schema.py -q` 為 `1 passed`，`cd backend && uv run ruff check .` 為 `All checks passed!`，`cd backend && uv run pytest tests/test_health.py -q` 為 `1 passed`（既有 Starlette/httpx deprecation warning），額外 `cd backend && uv run pytest -q` 為 `2 passed`。Task-scope review 未發現必要修正；只納入 backend 的 B2 檔案，保留未追蹤 `android-dev-guide/`。實作 Commit `a9eeafb`（`feat: add daily news database schema`）。
 
 ### B3: 實作 Firebase 身分驗證與單一 email allowlist
 
