@@ -331,7 +331,7 @@ def run_checks(rules: Sequence[Rule], files: Sequence[Path], repo_root: Path) ->
             if rule.check == "regex":
                 violations.extend(check_regex_rule(rule, path, text, ignored_lines))
             elif rule.check == "file":
-                violations.extend(check_file_rule(rule, path, text))
+                violations.extend(check_file_rule(rule, path, text, ignored_lines))
     return sorted(violations, key=lambda item: (str(item.path), item.line, item.rule_id))
 
 
@@ -409,22 +409,32 @@ def check_regex_rule(
     return violations
 
 
-def check_file_rule(rule: Rule, path: Path, text: str) -> List[Violation]:
+def check_file_rule(
+    rule: Rule,
+    path: Path,
+    text: str,
+    ignored_lines: Dict[str, Set[int]],
+) -> List[Violation]:
     assert rule.file_check is not None
     kind = rule.file_check["kind"]
     pattern = str(rule.file_check["pattern"])
     compiled = re.compile(pattern, re.MULTILINE)
+    ignored_for_rule = ignored_lines.get(rule.rule_id, set())
 
     if kind == "forbidden_regex":
         violations: List[Violation] = []
         for match in compiled.finditer(text):
             line = text.count("\n", 0, match.start()) + 1
+            if line in ignored_for_rule:
+                continue
             violations.append(
                 Violation(path=path, line=line, rule_id=rule.rule_id, message=rule.message)
             )
         return violations
 
     if compiled.search(text):
+        return []
+    if 1 in ignored_for_rule:
         return []
     return [Violation(path=path, line=1, rule_id=rule.rule_id, message=rule.message)]
 

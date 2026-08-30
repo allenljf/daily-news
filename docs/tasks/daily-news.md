@@ -138,7 +138,7 @@
 
 **完成紀錄：**
 
-- 2026-08-30：先以 fixture-driven unittest 建立三個必要違規案例，並額外覆蓋 `// guide-ignore: rule-id`、只掃描支援檔型與 `--self-check`。Red：`python3 -m unittest flutter-dev-guide.tools.test_check_rules -v` 失敗，stderr 顯示 `can't open file '/Users/allen/SideProject/daily-news/flutter-dev-guide/tools/check-rules.py': [Errno 2] No such file or directory`，確認失敗原因是 checker 尚未建立。Green：完成 `flutter-dev-guide/tools/check-rules.py` 後，同一指令通過（`Ran 7 tests ... OK`）；`python3 flutter-dev-guide/tools/check-rules.py --self-check` 輸出 `Self-check passed: /Users/allen/SideProject/daily-news/flutter-dev-guide/rules.yaml`。Scope/spec 自 review：僅變更 `flutter-dev-guide/{README.md,rules.yaml,tools/check-rules.py,tools/test_check_rules.py}` 與本 task 記錄，未碰其他階段檔案。Commit `PENDING_SHA`。
+- 2026-08-30：先以 fixture-driven unittest 建立三個必要違規案例，並額外覆蓋 `// guide-ignore: rule-id`、只掃描支援檔型與 `--self-check`。Red：`python3 -m unittest flutter-dev-guide.tools.test_check_rules -v` 失敗，stderr 顯示 `can't open file '/Users/allen/SideProject/daily-news/flutter-dev-guide/tools/check-rules.py': [Errno 2] No such file or directory`，確認失敗原因是 checker 尚未建立。Green：完成 `flutter-dev-guide/tools/check-rules.py` 後，同一指令通過（`Ran 7 tests ... OK`）；`python3 flutter-dev-guide/tools/check-rules.py --self-check` 輸出 `Self-check passed: /Users/allen/SideProject/daily-news/flutter-dev-guide/rules.yaml`。Scope/spec 自 review：僅變更 `flutter-dev-guide/{README.md,rules.yaml,tools/check-rules.py,tools/test_check_rules.py}` 與本 task 記錄，未碰其他階段檔案。Commit `8229a0f`。Fix round 1：新增 custom `file` rule fixture，先重現 `guide-ignore` 對 `forbidden_regex` file rule 無效，再修正 checker 讓 file rule 與 regex rule 共用同一套 ignore 行為；`python3 -m unittest flutter-dev-guide.tools.test_check_rules -v` 更新為 `Ran 8 tests ... OK`。
 
 ---
 

@@ -38,12 +38,16 @@ def parse_violations(output: str) -> List[Violation]:
 class CheckRulesCliTest(unittest.TestCase):
     maxDiff = None
 
-    def run_checker(self, *paths: Path) -> subprocess.CompletedProcess[str]:
+    def run_checker(
+        self,
+        *paths: Path,
+        rules_path: Path = RULES_PATH,
+    ) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
             str(CHECKER_PATH),
             "--rules",
-            str(RULES_PATH),
+            str(rules_path),
             "--files",
             *[str(path) for path in paths],
         ]
@@ -177,6 +181,49 @@ class CheckRulesCliTest(unittest.TestCase):
             )
 
             completed = self.run_checker(fixture)
+
+            self.assertEqual(
+                completed.returncode,
+                0,
+                msg=f"stdout:\n{completed.stdout}\n\nstderr:\n{completed.stderr}",
+            )
+            self.assertEqual(parse_violations(completed.stdout), [])
+
+    def test_allows_guide_ignore_for_custom_forbidden_file_rule(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            fixture = self.write_fixture(
+                temp_root,
+                "lib/features/news/presentation/example.dart",
+                """
+                // guide-ignore: exact-bar-line
+                bar
+                """,
+            )
+            rules_path = self.write_fixture(
+                temp_root,
+                "rules.yaml",
+                """
+                - id: exact-bar-line
+                  owner: 00-principles.md
+                  check: file
+                  message: exact bar forbidden
+                  applies_to:
+                    - "**/*.dart"
+                  file_check:
+                    kind: forbidden_regex
+                    pattern: "^bar$"
+                """,
+            )
+            self.write_fixture(
+                temp_root,
+                "guides/00-principles.md",
+                """
+                ## exact-bar-line
+                """,
+            )
+
+            completed = self.run_checker(fixture, rules_path=rules_path)
 
             self.assertEqual(
                 completed.returncode,
