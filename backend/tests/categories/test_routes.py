@@ -2,13 +2,8 @@
 
 from __future__ import annotations
 
-import os
-import secrets
-import subprocess
-import time
 import uuid
-from collections.abc import AsyncIterator, Iterator
-from pathlib import Path
+from collections.abc import AsyncIterator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,80 +13,14 @@ from app.db.engine import get_session
 from app.identity.dependencies import require_allowed_identity
 from app.identity.firebase import VerifiedIdentity
 from app.main import create_app
-
-BACKEND_ROOT = Path(__file__).resolve().parents[2]
-
-
-def _docker(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["docker", *args],
-        cwd=BACKEND_ROOT,
-        text=True,
-        capture_output=True,
-        check=check,
-    )
-
-
-@pytest.fixture
-def postgres_container() -> Iterator[tuple[str, str]]:
-    container_name = f"daily-news-categories-test-{secrets.token_hex(4)}"
-    _docker(
-        "run",
-        "--rm",
-        "--detach",
-        "--publish",
-        "127.0.0.1::5432",
-        "--name",
-        container_name,
-        "-e",
-        "POSTGRES_USER=daily_news",
-        "-e",
-        "POSTGRES_PASSWORD=daily_news",
-        "-e",
-        "POSTGRES_DB=daily_news_test",
-        "postgres:16-alpine",
-    )
-    try:
-        deadline = time.time() + 30
-        while time.time() < deadline:
-            ready = _docker(
-                "exec",
-                container_name,
-                "pg_isready",
-                "-U",
-                "daily_news",
-                "-d",
-                "daily_news_test",
-                check=False,
-            )
-            if ready.returncode == 0:
-                break
-            time.sleep(1)
-        else:
-            pytest.fail("Timed out waiting for PostgreSQL test container to become ready.")
-        port = _docker("port", container_name, "5432/tcp").stdout.strip().rsplit(":", 1)[-1]
-        yield (
-            container_name,
-            "postgresql+asyncpg://daily_news:daily_news@127.0.0.1:"
-            f"{port}/daily_news_test",
-        )
-    finally:
-        _docker("rm", "-f", container_name, check=False)
+from tests.postgres import psql, run_alembic_upgrade
 
 
 @pytest.fixture
 def migrated_database(postgres_container: tuple[str, str]) -> tuple[str, str]:
     """Apply the real Alembic schema to an isolated PostgreSQL database."""
-    container_name, database_url = postgres_container
-    subprocess.run(
-        ["uv", "run", "alembic", "upgrade", "head"],
-        cwd=".",
-        env=os.environ | {"DATABASE_URL": database_url},
-        text=True,
-        capture_output=True,
-        check=True,
-    )
-    return container_name, database_url
+    run_alembic_upgrade(postgres_container[1])
+    return postgres_container
 
 
 @pytest.fixture
@@ -188,63 +117,41 @@ def test_delete_category_soft_deletes_links_without_deleting_article(
     article_id = uuid.uuid4()
     source_setting_id = created["source_settings"][0]["id"]
     category_id = created["id"]
-    sql = (
+    psql(
+        container_name,
         "INSERT INTO articles "
         "(id, title, normalized_title_hash, canonical_url, canonical_url_hash) "
         f"VALUES ('{article_id}', 'Kept article', '{'a' * 64}', 'https://example.com/a', "
         f"'{'b' * 64}'); "
         "INSERT INTO category_articles (category_id, article_id, source_setting_id) "
-        f"VALUES ('{category_id}', '{article_id}', '{source_setting_id}');"
-    )
-    subprocess.run(
-        [
-            "docker",
-            "exec",
-            "-e",
-            "PGPASSWORD=daily_news",
-            container_name,
-            "psql",
-            "-U",
-            "daily_news",
-            "-d",
-            "daily_news_test",
-            "-v",
-            "ON_ERROR_STOP=1",
-            "-c",
-            sql,
-        ],
-        check=True,
-        text=True,
-        capture_output=True,
+        f"VALUES ('{category_id}', '{article_id}', '{source_setting_id}');",
     )
 
     response = authenticated_client.delete(f"/v1/categories/{category_id}")
 
     assert response.status_code == 204
-    article_count = subprocess.run(
-        [
-            "docker",
-            "exec",
-            "-e",
-            "PGPASSWORD=daily_news",
-            container_name,
-            "psql",
-            "-U",
-            "daily_news",
-            "-d",
-            "daily_news_test",
-            "-At",
-            "-c",
-            f"SELECT count(*) FROM articles WHERE id = '{article_id}'",
-        ],
-        check=True,
-        text=True,
-        capture_output=True,
+    deletion_state = psql(
+        container_name,
+        f"""
+        SELECT
+          (SELECT deleted_at IS NOT NULL FROM categories WHERE id = '{category_id}'),
+          (SELECT count(*) = 3 AND bool_and(deleted_at IS NOT NULL)
+             FROM source_settings WHERE category_id = '{category_id}'),
+          (SELECT deleted_at IS NOT NULL FROM category_articles
+             WHERE category_id = '{category_id}' AND article_id = '{article_id}'),
+          (SELECT count(*) FROM articles WHERE id = '{article_id}')
+        """,
     )
-    assert article_count.stdout.strip() == "1"
+    assert deletion_state == "t,t,t,1"
     second_delete = authenticated_client.delete(f"/v1/categories/{category_id}")
     assert second_delete.status_code == 404
     assert second_delete.headers["content-type"] == "application/problem+json"
+    assert authenticated_client.get("/v1/categories").json() == []
+    patch_after_delete = authenticated_client.patch(
+        f"/v1/categories/{category_id}", json=category_payload()
+    )
+    assert patch_after_delete.status_code == 404
+    assert patch_after_delete.headers["content-type"] == "application/problem+json"
 
 
 def test_categories_require_authorization(migrated_database: tuple[str, str]) -> None:

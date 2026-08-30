@@ -79,3 +79,43 @@ No B4 blockers. The only runtime noise is the existing Starlette/httpx
 deprecation warning noted above. Future news-list work should explicitly filter
 `CategoryArticle.deleted_at IS NULL` and preserve historical source labels when
 displaying previously ingested articles.
+
+## Fix round 1 — reviewer findings
+
+### Scope and changes
+
+- Strengthened the B4 delete route integration test to query the same real
+  PostgreSQL database after deletion and assert `deleted_at IS NOT NULL` for
+  the Category, all three Source Settings, and the Category Article link while
+  the Article count remains exactly one.
+- Added direct route assertions that a deleted Category is absent from
+  `GET /v1/categories` and that `PATCH /v1/categories/{id}` returns 404 with
+  `application/problem+json`.
+- Added `backend/tests/postgres.py` as the one reusable disposable
+  PostgreSQL/Docker/Alembic helper. Both `tests/categories/test_routes.py` and
+  `tests/integration/test_schema.py` use its function-scoped container fixture,
+  migration runner, and `psql` helper; `tests/conftest.py` re-exports the
+  fixture for pytest discovery. The schema test is kept in its intended file.
+
+### Red and Green evidence
+
+- Red for the extracted helper: after B4 route tests were changed to import
+  `tests.postgres` but before that shared helper existed,
+  `cd backend && uv run pytest tests/categories/test_routes.py tests/integration/test_schema.py -q`
+  stopped during collection with `ModuleNotFoundError: No module named
+  'tests.postgres'`.
+- Green after adding the helper and test assertions: the same command reports
+  **6 passed**. The new delete assertion returns `t,t,t,1`, proving all three
+  Category-owned rows are soft-deleted while the Article is retained.
+
+### Fix-round verification
+
+- `cd backend && uv run pytest tests/categories/test_routes.py tests/integration/test_schema.py -q`
+  — **6 passed**.
+- `cd backend && uv run ruff check .` — **All checks passed!**.
+- `cd backend && uv run pytest -q` — **12 passed**.
+- `git diff --check` — no whitespace errors.
+
+The same pre-existing Starlette/httpx `TestClient` deprecation warning appears;
+there are no test or lint failures. `docs/tasks/daily-news.md` and the
+untracked `android-dev-guide/` directory remain untouched.
