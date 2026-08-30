@@ -295,11 +295,11 @@ class JobLauncher(Protocol):
 **Parallel:** yes — 可與 N1、N2 並行。  
 **Files:** Create `backend/app/ingestion/{sources.py,normalization.py,dedupe.py}`, `backend/tests/ingestion/{test_normalization.py,test_dedupe.py}`.
 
-- [ ] **Red:** 測試 URL 移除 tracking parameters 後 hash 相同；大小寫／空白不同的 title hash 相同；不同 canonical URL 但相同 title 判為 duplicate；被 soft-deleted Article 仍判為 duplicate。
-- [ ] **Run Red:** `cd backend && uv run pytest tests/ingestion/test_normalization.py tests/ingestion/test_dedupe.py -q`，預期失敗。
-- [ ] **Green:** 定義 `CandidateArticle`、`SourceAdapter.search(request) -> list[CandidateArticle]`，每次 adapter 輸出限制為 10；dedupe service 將 canonical URL 放在 title 之前檢查。
-- [ ] **Run Green:** 重跑 tests，並檢查 CandidateArticle 沒有 database 或 FastAPI type。
-- [ ] **Commit:** `git add backend && git commit -m "feat: add ingestion source and dedupe contracts"`。
+- [x] **Red:** 測試 URL 移除 tracking parameters 後 hash 相同；大小寫／空白不同的 title hash 相同；不同 canonical URL 但相同 title 判為 duplicate；被 soft-deleted Article 仍判為 duplicate。
+- [x] **Run Red:** `cd backend && uv run pytest tests/ingestion/test_normalization.py tests/ingestion/test_dedupe.py -q`，預期失敗。
+- [x] **Green:** 定義 `CandidateArticle`、`SourceAdapter.search(request) -> list[CandidateArticle]`，每次 adapter 輸出限制為 10；dedupe service 將 canonical URL 放在 title 之前檢查。
+- [x] **Run Green:** 重跑 tests，並檢查 CandidateArticle 沒有 database 或 FastAPI type。
+- [x] **Commit:** `git add backend && git commit -m "feat: add ingestion source and dedupe contracts"`。
 
 **Interface produced:**
 
@@ -309,6 +309,8 @@ class SourceAdapter(Protocol):
 ```
 
 **完成紀錄：**
+
+- 2026-08-31：Red：`cd backend && uv run pytest tests/ingestion/test_normalization.py tests/ingestion/test_dedupe.py -q` 因 `app.ingestion.normalization` 與 `app.ingestion.dedupe` 尚不存在而有 2 collection errors。Green：新增 URL canonicalization（移除 fragment 與 tracking parameters）、SHA-256 URL／標題 fingerprints、純 Python `CandidateArticle`／`SourceSearchRequest`／`SourceAdapter` contract、每 Source Setting 最多 10 筆的 limiter，及以 URL 優先、title 次之的可注入 fingerprint lookup dedupe service。測試將 soft-deleted Article 視為 lookup 可見的 fingerprint，確保它仍抑制重新擷取。Run Green：指定測試為 `5 passed`；`rg -n '(FastAPI|sqlalchemy|app\\.db)' backend/app/ingestion/sources.py` 無輸出；全量 `cd backend && uv run pytest -q` 為 `24 passed`，`cd backend && uv run ruff check .` 為 `All checks passed!`。唯一 warning 為既有 Starlette/httpx deprecation warning；未修改未追蹤 `android-dev-guide/`。Backend commit `7ae6647`（`feat: add ingestion source and dedupe contracts`）。
 
 ### I2: 實作公開網站 Gemini adapter
 
