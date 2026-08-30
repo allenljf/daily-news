@@ -24,3 +24,8 @@ def unauthenticated_error() -> HTTPException:
 def forbidden_error() -> HTTPException:
     """Create the standard response for a valid but unauthorized identity."""
     return problem_http_exception(status.HTTP_403_FORBIDDEN, "Access forbidden")
+
+
+def not_found_error(title: str = "Resource not found") -> HTTPException:
+    """Create a standard problem response for absent active resources."""
+    return problem_http_exception(status.HTTP_404_NOT_FOUND, title)

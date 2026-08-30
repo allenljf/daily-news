@@ -1,0 +1,1 @@
+"""Category settings API package."""
