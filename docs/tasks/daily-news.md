@@ -266,11 +266,11 @@ class NewsPage(BaseModel):
 **Parallel:** yes — 可與 N1 並行。  
 **Files:** Create `backend/app/ingestion/{schemas.py,run_repository.py,run_service.py,router.py}`, `backend/tests/ingestion/test_manual_runs.py`; modify `backend/app/main.py`.
 
-- [ ] **Red:** 寫 route tests：`GET /v1/ingestion-runs/latest` 在無成功 Run 時回 `last_successful_at: null`；`POST` 回 202 與 manual Run；已有 queued/running Run 時回相同 id；已完成 scheduled Run 不阻止新的 manual Run。
-- [ ] **Run Red:** `cd backend && uv run pytest tests/ingestion/test_manual_runs.py -q`，預期失敗。
-- [ ] **Green:** 實作 Run state machine (`queued → running → succeeded|failed`) 與 transaction-safe active-run lookup；將 Job launch 包在 `JobLauncher` interface，測試注入 fake launcher。
-- [ ] **Run Green:** 重跑測試；斷言 `POST /v1/ingestion-runs` 只回 202，不等待 Job 完成。
-- [ ] **Commit:** `git add backend && git commit -m "feat: add manual ingestion runs API"`。
+- [x] **Red:** 寫 route tests：`GET /v1/ingestion-runs/latest` 在無成功 Run 時回 `last_successful_at: null`；`POST` 回 202 與 manual Run；已有 queued/running Run 時回相同 id；已完成 scheduled Run 不阻止新的 manual Run。
+- [x] **Run Red:** `cd backend && uv run pytest tests/ingestion/test_manual_runs.py -q`，預期失敗。
+- [x] **Green:** 實作 Run state machine (`queued → running → succeeded|failed`) 與 transaction-safe active-run lookup；將 Job launch 包在 `JobLauncher` interface，測試注入 fake launcher。
+- [x] **Run Green:** 重跑測試；斷言 `POST /v1/ingestion-runs` 只回 202，不等待 Job 完成。
+- [x] **Commit:** `git add backend && git commit -m "feat: add manual ingestion runs API"`。
 
 **Interface produced:**
 
@@ -280,6 +280,8 @@ class JobLauncher(Protocol):
 ```
 
 **完成紀錄：**
+
+- 2026-08-30：Red：`cd backend && uv run pytest tests/ingestion/test_manual_runs.py -q` 在 ingestion module 尚未存在時以 `ModuleNotFoundError: No module named 'app.ingestion'` 停於 collection，確認契約尚未實作。Green：加入 authenticated `GET /v1/ingestion-runs/latest` 與 `POST /v1/ingestion-runs`、`queued → running → succeeded|failed` state transitions、PostgreSQL transaction-scoped advisory lock 以序列化 active Run lookup，以及可由測試覆寫的 `JobLauncher` interface。route tests 以 fake launcher 與 disposable PostgreSQL 驗證無成功 Run、202 manual Run、active Run 合併與 completed scheduled Run 後建立新的 manual Run。Run Green：指定測試為 `3 passed`；全量 `cd backend && uv run pytest -q` 為 `19 passed`，`cd backend && uv run ruff check .` 為 `All checks passed!`。唯一 warning 為既有 Starlette/httpx deprecation warning；未修改未追蹤 `android-dev-guide/`。Backend commit `06a2d3b`（`feat: add manual ingestion runs API`）。
 
 ---
 
