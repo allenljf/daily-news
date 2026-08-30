@@ -318,13 +318,15 @@ class SourceAdapter(Protocol):
 **Parallel:** yes — 可與 I3 並行。  
 **Files:** Create `backend/app/ingestion/gemini_adapter.py`, `backend/tests/ingestion/test_gemini_adapter.py`.
 
-- [ ] **Red:** 使用 fake Gemini client 測試 prompt 包含 Category、keywords、Source Setting、特殊需求；拒絕沒有公開 URL 或 citation 的候選；輸出最多 10 筆。
-- [ ] **Run Red:** `cd backend && uv run pytest tests/ingestion/test_gemini_adapter.py -q`，預期失敗。
-- [ ] **Green:** 在 adapter 內注入 Gemini client，使用 Google Search grounding 與必要時 URL Context；只接收 public 可驗證 URL，保存 citations，不嘗試讀登入、付費牆或動態社群內容。
-- [ ] **Run Green:** 重跑 test；確認 logging 不輸出完整 prompt 或 API key。
-- [ ] **Commit:** `git add backend && git commit -m "feat: add grounded web news adapter"`。
+- [x] **Red:** 使用 fake Gemini client 測試 prompt 包含 Category、keywords、Source Setting、特殊需求；拒絕沒有公開 URL 或 citation 的候選；輸出最多 10 筆。
+- [x] **Run Red:** `cd backend && uv run pytest tests/ingestion/test_gemini_adapter.py -q`，預期失敗。
+- [x] **Green:** 在 adapter 內注入 Gemini client，使用 Google Search grounding 與必要時 URL Context；只接收 public 可驗證 URL，保存 citations，不嘗試讀登入、付費牆或動態社群內容。
+- [x] **Run Green:** 重跑 test；確認 logging 不輸出完整 prompt 或 API key。
+- [x] **Commit:** `git add backend && git commit -m "feat: add grounded web news adapter"`。
 
 **完成紀錄：**
+
+- 2026-08-31：Red：`cd backend && uv run pytest tests/ingestion/test_gemini_adapter.py -q` 因 adapter module 尚不存在而以 `ModuleNotFoundError` 停於 collection。Green：新增 SDK-neutral、可注入的 Gemini client contract；request 明確啟用 Google Search，僅對 public HTTP Source Setting 提供 URL Context，並將 Category、keywords、Source Setting、特殊需求寫入 prompt。adapter 過濾缺少 public HTTP URL 或 citation 的結果，保存 citation 並限制為 10 筆；不寫入或 log API key。Run Green：指定測試 `2 passed`；全量 `cd backend && uv run pytest -q` 為 `26 passed`，ruff 通過。唯一 warning 為既有 Starlette/httpx deprecation warning；未修改未追蹤 `android-dev-guide/`。Backend commit `9692c26`（`feat: add grounded web news adapter`）。
 
 ### I3: 實作 YouTube、GitHub 與受限 Meta adapter registry
 
