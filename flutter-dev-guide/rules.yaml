@@ -523,7 +523,13 @@
   level: MUST
   enforce: new-only+on-touch
   owner: 15-testing.md
-  check: manual
+  check: regex
+  pattern: \b(?:Future(?:<[^>]+>)?\.delayed|sleep)\s*\(
+  applies_to:
+    - '**/test/**/*.dart'
+    - '**/integration_test/**/*.dart'
+    - '**/*_test.dart'
+  message: 測試不得用 Future.delayed、sleep 或任意秒數等待 UI 更新。改用 tester.pump*、await 受測方法，或其他與狀態完成綁定的等待。
   source: https://docs.flutter.dev/testing/overview
 - id: integration-test-covers-branch-logic
   level: MUST
@@ -565,7 +571,15 @@
   level: MUST
   enforce: new-only+on-touch
   owner: 17-security.md
-  check: manual
+  check: regex
+  pattern: (?i)\b(?:const|final|var)?\s*[A-Za-z0-9_]*(?:api(?:_)?key|secret|token|password|passwd|private(?:_)?key|access(?:_)?key)[A-Za-z0-9_]*\s*[:=]\s*['"][^'"\n]{12,}['"]
+  applies_to:
+    - '**/*.dart'
+    - '**/pubspec.yaml'
+    - 'pubspec.yaml'
+    - '**/analysis_options.yaml'
+    - 'analysis_options.yaml'
+  message: Flutter client 與版本控制不得保存真正的 secret 或代表 server 身分的 token。把值移到 backend、Secret Manager 或其他 server-side 設定。
   source: https://docs.flutter.dev/security
 - id: firebase-token-logged-or-persisted
   level: MUST

@@ -128,15 +128,17 @@
 **Parallel:** no — 需要完整 rules index。  
 **Files:** Create `flutter-dev-guide/tools/check-rules.py`, `flutter-dev-guide/tools/test_check_rules.py`; modify `flutter-dev-guide/{README.md,rules.yaml}`.
 
-- [ ] **Red:** 在 `test_check_rules.py` 寫入三個失敗 fixture：UI 直接使用 Dio、Widget 直接讀 Repository、Dart 檔內 hardcoded secret；斷言輸出各自 rule id 與行號。
-- [ ] **Run Red:** `python3 -m unittest flutter-dev-guide.tools.test_check_rules -v`，預期失敗，因 checker 尚不存在。
-- [ ] **Green:** 實作讀取 YAML、掃描 `.dart`／`pubspec.yaml`／`analysis_options.yaml`、支援 `--all`、`--staged`、`--diff`、`--files`、`--self-check` 和行內 `// guide-ignore: rule-id` 的 checker；只加入單檔可判定的 regex/file rules。
-- [ ] **Run Green:** 重跑單元測試與 `python3 flutter-dev-guide/tools/check-rules.py --self-check`，預期皆通過。
-- [ ] **Commit:** `git add flutter-dev-guide && git commit -m "feat: add Flutter guide checker"`。
+- [x] **Red:** 在 `test_check_rules.py` 寫入三個失敗 fixture：UI 直接使用 Dio、Widget 直接讀 Repository、Dart 檔內 hardcoded secret；斷言輸出各自 rule id 與行號。
+- [x] **Run Red:** `python3 -m unittest flutter-dev-guide.tools.test_check_rules -v`，確認因 `flutter-dev-guide/tools/check-rules.py` 尚不存在而失敗。
+- [x] **Green:** 實作讀取 YAML、掃描 `.dart`／`pubspec.yaml`／`analysis_options.yaml`、支援 `--all`、`--staged`、`--diff`、`--files`、`--self-check` 和行內 `// guide-ignore: rule-id` 的 checker；並把 `fixed-delay-in-test`、`secret-in-client-code` 對齊為可單檔檢查的 regex 規則。
+- [x] **Run Green:** 重跑單元測試與 `python3 flutter-dev-guide/tools/check-rules.py --self-check`，確認皆通過。
+- [x] **Commit:** `git add flutter-dev-guide docs/tasks/daily-news.md && git commit -m "feat: add Flutter guide checker"`。
 
 **Done when:** README 所列的 guide 自我檢查與 fixture test 均通過。
 
 **完成紀錄：**
+
+- 2026-08-30：先以 fixture-driven unittest 建立三個必要違規案例，並額外覆蓋 `// guide-ignore: rule-id`、只掃描支援檔型與 `--self-check`。Red：`python3 -m unittest flutter-dev-guide.tools.test_check_rules -v` 失敗，stderr 顯示 `can't open file '/Users/allen/SideProject/daily-news/flutter-dev-guide/tools/check-rules.py': [Errno 2] No such file or directory`，確認失敗原因是 checker 尚未建立。Green：完成 `flutter-dev-guide/tools/check-rules.py` 後，同一指令通過（`Ran 7 tests ... OK`）；`python3 flutter-dev-guide/tools/check-rules.py --self-check` 輸出 `Self-check passed: /Users/allen/SideProject/daily-news/flutter-dev-guide/rules.yaml`。Scope/spec 自 review：僅變更 `flutter-dev-guide/{README.md,rules.yaml,tools/check-rules.py,tools/test_check_rules.py}` 與本 task 記錄，未碰其他階段檔案。Commit `PENDING_SHA`。
 
 ---
 

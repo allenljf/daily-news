@@ -24,6 +24,9 @@ flutter-dev-guide/
 ├── AGENTS.md
 ├── README.md
 ├── rules.yaml
+├── tools/
+│   ├── check-rules.py
+│   └── test_check_rules.py
 └── guides/
     ├── 00-principles.md
     ├── 01-architecture.md
@@ -58,7 +61,7 @@ flutter-dev-guide/
     └── flutter-review/SKILL.md
 ```
 
-已交付完整的 guide、checklist、adoption 與 agent skill 文件。自動化稽核器是下一個 task 的範圍；在它落地前，checklist 的 rule-checker 項目可先記為未接入。
+已交付完整的 guide、checklist、adoption、agent skill 文件，以及可接進 CI / git hook 的單檔規則稽核器。
 
 ---
 
@@ -72,6 +75,45 @@ flutter-dev-guide/
 
 先把它當成 review 標準，不要一次把全部規則硬套到老專案。`rules.yaml` 已標記每條規則的
 `level`、`enforce`、`check`，後續 checker 只會自動化單檔可安全判定的規則。
+
+## 稽核器用法
+
+先確認規則索引與 owner guide 一致：
+
+```bash
+python3 flutter-dev-guide/tools/check-rules.py --self-check
+```
+
+掃描所有支援的檔案（`.dart`、`pubspec.yaml`、`analysis_options.yaml`）：
+
+```bash
+python3 flutter-dev-guide/tools/check-rules.py --all
+```
+
+只掃描 staged 變更：
+
+```bash
+python3 flutter-dev-guide/tools/check-rules.py --staged
+```
+
+掃描某個 commit / branch / range 相對的 diff：
+
+```bash
+python3 flutter-dev-guide/tools/check-rules.py --diff HEAD~1
+```
+
+只掃描指定檔案：
+
+```bash
+python3 flutter-dev-guide/tools/check-rules.py --files \
+  lib/features/news/presentation/news_page.dart \
+  pubspec.yaml \
+  analysis_options.yaml
+```
+
+輸出格式固定為 `path:line: rule-id: message`；有違規時 exit code 為 `1`，無違規時為 `0`，規則設定錯誤或 git 參數錯誤時為 `2`。
+
+若某一行需要例外，將 `// guide-ignore: rule-id` 放在同一行，或放在前一行讓它只忽略下一個非空白行。
 
 ---
 
@@ -96,7 +138,7 @@ Riverpod 與 Dio 是工具選型，不改變官方建議的責任邊界：View �
 
 1. 改規則要同步兩處：對應 `guides/*.md` 章節與 [rules.yaml](rules.yaml)
 2. 一條規則只由一份 guide 擁有，其他 guide 只 cross-reference，不重述
-3. 改完至少重跑 YAML parse，並確認每個 rule id 只屬於一個 owner
+3. 改完至少重跑 `python3 flutter-dev-guide/tools/check-rules.py --self-check`
 
 ## 依情境使用
 
