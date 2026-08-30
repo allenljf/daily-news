@@ -188,11 +188,11 @@
 **Parallel:** yes — 可與 B2 並行。  
 **Files:** Create `backend/app/identity/{firebase.py,dependencies.py}`, `backend/tests/identity/test_dependencies.py`; modify `backend/app/core/{config.py,errors.py}`.
 
-- [ ] **Red:** 寫三個測試：缺少 Bearer token 回 401、invalid Firebase token 回 401、valid token 但 email 不等於 `ALLOWED_USER_EMAIL` 回 403。
-- [ ] **Run Red:** `cd backend && uv run pytest tests/identity/test_dependencies.py -q`，預期失敗。
-- [ ] **Green:** 定義 `VerifiedIdentity(uid: str, email: str)`；用 Firebase Admin SDK 的 token verifier adapter；建立 `require_allowed_identity` FastAPI dependency。測試以 fake verifier 注入，不連真 Firebase。
-- [ ] **Run Green:** `cd backend && uv run pytest tests/identity/test_dependencies.py -q`。
-- [ ] **Commit:** `git add backend && git commit -m "feat: secure API with Firebase allowlist"`。
+- [x] **Red:** 寫三個測試：缺少 Bearer token 回 401、invalid Firebase token 回 401、valid token 但 email 不等於 `ALLOWED_USER_EMAIL` 回 403。
+- [x] **Run Red:** `cd backend && uv run pytest tests/identity/test_dependencies.py -q`，預期失敗。
+- [x] **Green:** 定義 `VerifiedIdentity(uid: str, email: str)`；用 Firebase Admin SDK 的 token verifier adapter；建立 `require_allowed_identity` FastAPI dependency。測試以 fake verifier 注入，不連真 Firebase。
+- [x] **Run Green:** `cd backend && uv run pytest tests/identity/test_dependencies.py -q`。
+- [x] **Commit:** `git add backend && git commit -m "feat: secure API with Firebase allowlist"`。
 
 **Interface produced:**
 
@@ -201,6 +201,8 @@ async def require_allowed_identity(...) -> VerifiedIdentity: ...
 ```
 
 **完成紀錄：**
+
+- 2026-08-30：Red：`cd backend && uv run pytest tests/identity/test_dependencies.py -q` 在 identity module 尚未存在時以 `ModuleNotFoundError: No module named 'app.identity'` 失敗。Green：加入 Firebase Admin verifier adapter、`VerifiedIdentity` 和 `require_allowed_identity`，測試以 fake verifier 注入且不連 Firebase；同一指令通過。Task review 發現 Firebase certificate/network outage 被誤映射為 401，已在 fix round 將例外分類縮小為 Firebase 的 invalid-token family，並新增 certificate-fetch regression test；scoped re-review 確認修正且無新增 Critical／Important 問題。最終驗證：`cd backend && uv run pytest tests/identity/test_dependencies.py -q` 為 `5 passed`、`cd backend && uv run ruff check .` 為 `All checks passed!`、`cd backend && uv run pytest -q` 為 `7 passed`；測試僅有既有 Starlette/httpx deprecation warning。未修改或加入未追蹤 `android-dev-guide/`。Commits `69398c3`（`feat: secure API with Firebase allowlist`）與 `48d5b90`（`fix: preserve Firebase operational failures`）。
 
 ### B4: 交付 Category 與 Source Setting CRUD
 
