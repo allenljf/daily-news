@@ -77,14 +77,16 @@
 **Parallel:** yes — 可與 G3、G4 並行。  
 **Files:** Create `flutter-dev-guide/{README.md,AGENTS.md,rules.yaml}`, `flutter-dev-guide/guides/{00-principles.md,01-architecture.md,02-modularization.md,03-dependency-injection.md,04-domain-layer.md,05-data-layer.md,06-network.md,07-persistence.md}`.
 
-- [ ] **Red:** 在 `rules.yaml` 列出每份 guide 的 owner rule id，執行 YAML parser，確認尚未建立的 owner 會被 self-check 偵測。
-- [ ] **Green:** 寫入上述 8 份 guide；使用 Flutter 官方 View/ViewModel + Repository/Service 原則，規定 DTO／SQLite entity／domain／UI model 不跨層，Riverpod 作 composition root，Dio 僅可在 remote service，並記錄官方或套件一手來源。
-- [ ] **Verify:** `python3 -c 'import yaml; yaml.safe_load(open("flutter-dev-guide/rules.yaml"))'`；檢查每一個 rule id 只被一個 guide 宣告為 owner。
-- [ ] **Commit:** `git add flutter-dev-guide && git commit -m "docs: add Flutter architecture guide"`。
+- [x] **Red:** 在 `rules.yaml` 列出每份 guide 的 owner rule id，執行 YAML parser，確認尚未建立的 owner 會被 self-check 偵測。
+- [x] **Green:** 寫入上述 8 份 guide；使用 Flutter 官方 View/ViewModel + Repository/Service 原則，規定 DTO／SQLite entity／domain／UI model 不跨層，Riverpod 作 composition root，Dio 僅可在 remote service，並記錄官方或套件一手來源。
+- [x] **Verify:** `python3 -c 'import yaml; yaml.safe_load(open("flutter-dev-guide/rules.yaml"))'`；檢查每一個 rule id 只被一個 guide 宣告為 owner。
+- [x] **Commit:** `git add flutter-dev-guide && git commit -m "docs: add Flutter architecture guide"`。
 
 **Done when:** 新 Flutter feature 能依此判斷資料放置、Repository/Service 邊界、是否建立 use case 與 Riverpod wiring。
 
 **完成紀錄：**
+
+- 2026-08-30：建立 metadata、README、agent 入口與 00–07 guide。`python3 -c 'import yaml; yaml.safe_load(open("flutter-dev-guide/rules.yaml"))'` 通過；owner 自檢確認 89 個 rule id 均唯一且對應現有 guide。Commit `4484761`。
 
 ### G3: 建立 Flutter UI、非同步與導航指南
 
@@ -92,14 +94,16 @@
 **Parallel:** yes — 可與 G2、G4 並行。  
 **Files:** Create `flutter-dev-guide/guides/{08-ui-state.md,09-widget-api.md,10-widget-state-and-lifecycle.md,11-rendering-performance.md,12-async-streams-isolates.md,13-navigation.md,14-design-system.md}`.
 
-- [ ] **Red:** 在 `rules.yaml` 先加入這 7 份文件的 rule owner 項目，確認同一 id 不重複。
-- [ ] **Green:** 寫入 Riverpod `AsyncValue` state、Widget public interface、dispose/lifecycle、rebuild/list keys、Future/Stream/isolate、`go_router`、Material 3/accessibility/localization 規範；每項指出適用的 Dart／Flutter 檔案和可安全自動檢查的程度。
-- [ ] **Verify:** `rg -n '^### [a-z0-9-]+ ·' flutter-dev-guide/guides/{08-ui-state,09-widget-api,10-widget-state-and-lifecycle,11-rendering-performance,12-async-streams-isolates,13-navigation,14-design-system}.md` 有對應條目，且 YAML owner 全部可找到。
-- [ ] **Commit:** `git add flutter-dev-guide && git commit -m "docs: add Flutter UI guide"`。
+- [x] **Red:** 在 `rules.yaml` 先加入這 7 份文件的 rule owner 項目，確認同一 id 不重複。
+- [x] **Green:** 寫入 Riverpod `AsyncValue` state、Widget public interface、dispose/lifecycle、rebuild/list keys、Future/Stream/isolate、`go_router`、Material 3/accessibility/localization 規範；每項指出適用的 Dart／Flutter 檔案和可安全自動檢查的程度。
+- [x] **Verify:** `rg -n '^### [a-z0-9-]+ ·' flutter-dev-guide/guides/{08-ui-state,09-widget-api,10-widget-state-and-lifecycle,11-rendering-performance,12-async-streams-isolates,13-navigation,14-design-system}.md` 有對應條目，且 YAML owner 全部可找到。
+- [x] **Commit:** `git add flutter-dev-guide && git commit -m "docs: add Flutter UI guide"`。
 
 **Done when:** 新畫面能用指南決定 state、effect、導航、可重用 Widget 與 accessibility 寫法。
 
 **完成紀錄：**
+
+- 2026-08-30：建立 08–14 UI／非同步／導航 guide，並補齊非重複 owner entries。heading 檢查列出每份文件的 rule 條目；YAML 自檢確認所有 owner 存在且 id 無重複。Commit `6930b0e`。
 
 ### G4: 建立品質、採用與 agent skills 文件
 
@@ -107,14 +111,16 @@
 **Parallel:** yes — 可與 G2、G3 並行。  
 **Files:** Create `flutter-dev-guide/guides/{15-testing.md,16-performance.md,17-security.md,18-analytics.md}`, `flutter-dev-guide/checklists/{new-feature.md,new-screen.md,new-api.md,refactor.md}`, `flutter-dev-guide/adoption/{getting-started.md,existing-project.md,integrating-ai-tools.md}`, `flutter-dev-guide/skills/{flutter-guide/SKILL.md,flutter-review/SKILL.md}`.
 
-- [ ] **Red:** 為每份 checklist 列出可機械驗證的最終檢查（analyse、test、rule checker）；為 skills 定義輸入與輸出格式。
-- [ ] **Green:** 寫入 testing、profile-mode performance、secret/PII/Firebase token、analytics adapter 指南；checklist 依「contract → data → state → view → test」安排；skills 只路由至必要 guide，不重述規則。
-- [ ] **Verify:** 依 `writing-skills` skill 驗證兩個 skill 的 front matter、觸發描述與連結路徑；所有 README 連結存在。
-- [ ] **Commit:** `git add flutter-dev-guide && git commit -m "docs: add Flutter quality and adoption guide"`。
+- [x] **Red:** 為每份 checklist 列出可機械驗證的最終檢查（analyse、test、rule checker）；為 skills 定義輸入與輸出格式。
+- [x] **Green:** 寫入 testing、profile-mode performance、secret/PII/Firebase token、analytics adapter 指南；checklist 依「contract → data → state → view → test」安排；skills 只路由至必要 guide，不重述規則。
+- [x] **Verify:** 依 `writing-skills` skill 驗證兩個 skill 的 front matter、觸發描述與連結路徑；所有 README 連結存在。
+- [x] **Commit:** `git add flutter-dev-guide && git commit -m "docs: add Flutter quality and adoption guide"`。
 
 **Done when:** guide 可用於新專案、既有專案和 AI agent 的實作／review。
 
 **完成紀錄：**
+
+- 2026-08-30：建立品質、採用、checklist 與兩個 router-only agent skills。front matter、description 與所有 30 個 Markdown 檔案的本地連結檢查皆通過。Commit `6d2c08c`。
 
 ### G5: 實作 Flutter guide 稽核器與 self-check
 
@@ -144,15 +150,17 @@
 **Parallel:** yes — 可與 G2–G5 並行。  
 **Files:** Create `backend/{pyproject.toml,.env.example,README.md}`, `backend/app/{__init__.py,main.py}`, `backend/app/core/{config.py,errors.py}`, `backend/tests/{conftest.py,test_health.py}`.
 
-- [ ] **Red:** 在 `test_health.py` 寫入 `GET /healthz` 必回 200 與 `{"status":"ok"}` 的 FastAPI `TestClient` 測試。
-- [ ] **Run Red:** `cd backend && uv run pytest tests/test_health.py -q`，預期失敗，因 app 未建立。
-- [ ] **Green:** 建立 Python 3.12+ 的 `pyproject.toml`（FastAPI、Pydantic v2、SQLAlchemy、Alembic、pytest、httpx、ruff），實作 `create_app()`、health router、環境設定及不含實值的 `.env.example`。
-- [ ] **Run Green:** `cd backend && uv run ruff check . && uv run pytest tests/test_health.py -q`，預期通過。
-- [ ] **Commit:** `git add backend && git commit -m "build: scaffold FastAPI backend"`。
+- [x] **Red:** 在 `test_health.py` 寫入 `GET /healthz` 必回 200 與 `{"status":"ok"}` 的 FastAPI `TestClient` 測試。
+- [x] **Run Red:** `cd backend && uv run pytest tests/test_health.py -q`，預期失敗，因 app 未建立。
+- [x] **Green:** 建立 Python 3.12+ 的 `pyproject.toml`（FastAPI、Pydantic v2、SQLAlchemy、Alembic、pytest、httpx、ruff），實作 `create_app()`、health router、環境設定及不含實值的 `.env.example`。
+- [x] **Run Green:** `cd backend && uv run ruff check . && uv run pytest tests/test_health.py -q`，預期通過。
+- [x] **Commit:** `git add backend && git commit -m "build: scaffold FastAPI backend"`。
 
 **Interface produced:** `app.main.create_app() -> FastAPI`; `GET /healthz -> {"status": "ok"}`.
 
 **完成紀錄：**
+
+- 2026-08-30：先建立 health test；Red command 因尚無 `app` package 出現 `ModuleNotFoundError`。完成 FastAPI skeleton 後，`cd backend && uv run ruff check . && uv run pytest tests/test_health.py -q` 通過（1 passed）。Commit `0420e56`。
 
 ### B2: 建立 PostgreSQL schema、migration 與 repository session
 
