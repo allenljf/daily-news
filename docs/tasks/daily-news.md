@@ -439,13 +439,15 @@ F1 先產生 App，F2/F3 共享 core contracts 可順序執行；F4、F5 在 int
 **Parallel:** yes — 可與 F4 並行。  
 **Files:** Create `apps/mobile/lib/features/news/{application/,data/,presentation/}`, `apps/mobile/test/features/news/{news_list_test.dart,manual_refresh_dialog_test.dart}`.
 
-- [ ] **Red:** Widget tests：列表初次讀取 20 筆、scroll 使用 `next_cursor`、tag filter 重置 cursor、永久／刪除 action 更新畫面；立即更新 dialog 說明背景工作，確認後送 POST 並顯示 queued/running。
-- [ ] **Run Red:** `cd apps/mobile && flutter test test/features/news/news_list_test.dart test/features/news/manual_refresh_dialog_test.dart`，預期失敗。
-- [ ] **Green:** 實作 News Repository、cursor controller、detail view、source tag chips、Article mutation 和 ManualRun controller；不得在 Widget 直接呼叫 Dio 或 Repository。
-- [ ] **Run Green:** `cd apps/mobile && flutter analyze && flutter test test/features/news`。
-- [ ] **Commit:** `git add apps/mobile && git commit -m "feat: add news feed and manual refresh"`。
+- [x] **Red:** Widget tests：列表初次讀取 20 筆、scroll 使用 `next_cursor`、tag filter 重置 cursor、永久／刪除 action 更新畫面；立即更新 dialog 說明背景工作，確認後送 POST 並顯示 queued/running。
+- [x] **Run Red:** `cd apps/mobile && flutter test test/features/news/news_list_test.dart test/features/news/manual_refresh_dialog_test.dart`，預期失敗。
+- [x] **Green:** 實作 News Repository、cursor controller、detail view、source tag chips、Article mutation 和 ManualRun controller；不得在 Widget 直接呼叫 Dio 或 Repository。
+- [x] **Run Green:** `cd apps/mobile && flutter analyze && flutter test test/features/news`。
+- [x] **Commit:** `git add apps/mobile && git commit -m "feat: add news feed and manual refresh"`。
 
 **完成紀錄：**
+
+- 2026-09-01：Red：新增 `test/features/news/news_list_test.dart` 與 `manual_refresh_dialog_test.dart`，涵蓋首批 20 筆、`next_cursor` 捲動續載、tag filter 重置、永久／刪除 mutation，以及背景更新說明、POST 與 queued 狀態；`cd apps/mobile && flutter test test/features/news` 因 News/ManualRun contracts 與 widgets 尚不存在而 compilation failed，符合預期。Green：新增 News/ManualRun Repository、remote service、Riverpod cursor/detail/manual-run controllers 與 immutable UI state；列表提供 source tag chips 與 cursor pagination，詳情提供永久保存和刪除，Home 的立即更新 dialog 說明背景工作且 active 狀態停用 control。Widget 只使用 controller/provider，不直接呼叫 Dio 或 Repository；`ApiClient` 補上 typed PATCH/DELETE transport。Fresh verification：`cd apps/mobile && flutter analyze && flutter test test/features/news` exit 0，analyze 為 `No issues found!`，F5 suite `4 passed`；`python3 flutter-dev-guide/tools/check-rules.py --staged` 與 `git diff --cached --check` 通過。未修改未追蹤的 `android-dev-guide/` 與 `.vscode/`。
 
 ### F6: 建立 Flutter end-to-end 驗收流程
 

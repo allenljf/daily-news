@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
@@ -38,7 +39,8 @@ final class CategoryHomeSection extends ConsumerWidget {
           ),
           data: (state) => CategoryGrid(
             categories: state.categories,
-            onCategoryPressed: _newsRouteDeferredToF5,
+            onCategoryPressed: (categoryId) =>
+                context.push('/categories/$categoryId/news'),
             onAddCategoryPressed: () => showModalBottomSheet<void>(
               context: context,
               isScrollControlled: true,
@@ -48,5 +50,3 @@ final class CategoryHomeSection extends ConsumerWidget {
         );
   }
 }
-
-void _newsRouteDeferredToF5(String categoryId) {}

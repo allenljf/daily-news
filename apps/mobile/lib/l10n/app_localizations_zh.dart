@@ -86,4 +86,41 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get categorySaveFailed => '儲存失敗，請重新嘗試';
+
+  @override
+  String get news => '新聞';
+
+  @override
+  String get newsDetail => '新聞詳情';
+
+  @override
+  String get newsLoadFailed => '無法讀取新聞';
+
+  @override
+  String get noNews => '目前沒有新聞';
+
+  @override
+  String get makePermanent => '設為永久';
+
+  @override
+  String get savedPermanently => '已永久保存';
+
+  @override
+  String get deleteNews => '刪除新聞';
+
+  @override
+  String get newsDeleted => '新聞已刪除';
+
+  @override
+  String get manualRefreshTitle => '確認立即更新';
+
+  @override
+  String get manualRefreshExplanation =>
+      '確認後會啟動後端背景擷取工作，所需時間可能不同；你可以離開 App，新聞不會立即出現。';
+
+  @override
+  String get confirmUpdate => '確認更新';
+
+  @override
+  String get manualRunFailed => '無法啟動更新，請重新嘗試';
 }

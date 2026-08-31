@@ -64,6 +64,31 @@ final class ApiClient {
     }
   }
 
+  Future<T> patch<T>(
+    String path, {
+    required Object? data,
+    required T Function(Object? json) decode,
+  }) async {
+    try {
+      final response = await _dio.patch<Object?>(path, data: data);
+      return decode(response.data);
+    } on DioException catch (error) {
+      throw _translate(error);
+    } on FormatException {
+      throw const ApiFailure.invalidResponse();
+    } on TypeError {
+      throw const ApiFailure.invalidResponse();
+    }
+  }
+
+  Future<void> delete(String path) async {
+    try {
+      await _dio.delete<Object?>(path);
+    } on DioException catch (error) {
+      throw _translate(error);
+    }
+  }
+
   static Map<String, Object?> _decodeJsonObject(Object? json) {
     if (json case final Map<String, Object?> object) {
       return object;

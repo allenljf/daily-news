@@ -4,6 +4,9 @@ import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_spacing.dart';
 import '../../../features/categories/presentation/category_home_section.dart';
+import '../../../features/news/application/manual_run_providers.dart';
+import '../../../features/news/data/manual_run.dart';
+import '../../../features/news/presentation/manual_refresh_control.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/home_controller.dart';
 import '../application/home_ui_state.dart';
@@ -15,6 +18,7 @@ final class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final localizations = AppLocalizations.of(context);
     final state = ref.watch(homeControllerProvider);
+    final manualRun = ref.watch(manualRunControllerProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(localizations.appTitle)),
@@ -39,17 +43,27 @@ final class HomeScreen extends ConsumerWidget {
             ],
           ),
         ),
-        data: (homeState) => HomeContent(
-          state: homeState,
-          onImmediateUpdatePressed: _manualUpdateDeferredToNewsFeature,
-          categoryContent: const CategoryHomeSection(),
-        ),
+        data: (homeState) {
+          final manualStatus = manualRun.asData?.value.status;
+          final effectiveState = HomeUiState(
+            lastSuccessfulAt: homeState.lastSuccessfulAt,
+            runStatus: manualStatus == ManualRunStatus.queued
+                ? HomeRunUiStatus.queued
+                : manualStatus == ManualRunStatus.running
+                ? HomeRunUiStatus.running
+                : homeState.runStatus,
+          );
+          return HomeContent(
+            state: effectiveState,
+            onImmediateUpdatePressed: () =>
+                showManualRefreshDialog(context, ref),
+            categoryContent: const CategoryHomeSection(),
+          );
+        },
       ),
     );
   }
 }
-
-void _manualUpdateDeferredToNewsFeature() {}
 
 final class HomeContent extends StatelessWidget {
   const HomeContent({

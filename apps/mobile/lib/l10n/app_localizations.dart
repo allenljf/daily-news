@@ -249,6 +249,78 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'儲存失敗，請重新嘗試'**
   String get categorySaveFailed;
+
+  /// No description provided for @news.
+  ///
+  /// In zh, this message translates to:
+  /// **'新聞'**
+  String get news;
+
+  /// No description provided for @newsDetail.
+  ///
+  /// In zh, this message translates to:
+  /// **'新聞詳情'**
+  String get newsDetail;
+
+  /// No description provided for @newsLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'無法讀取新聞'**
+  String get newsLoadFailed;
+
+  /// No description provided for @noNews.
+  ///
+  /// In zh, this message translates to:
+  /// **'目前沒有新聞'**
+  String get noNews;
+
+  /// No description provided for @makePermanent.
+  ///
+  /// In zh, this message translates to:
+  /// **'設為永久'**
+  String get makePermanent;
+
+  /// No description provided for @savedPermanently.
+  ///
+  /// In zh, this message translates to:
+  /// **'已永久保存'**
+  String get savedPermanently;
+
+  /// No description provided for @deleteNews.
+  ///
+  /// In zh, this message translates to:
+  /// **'刪除新聞'**
+  String get deleteNews;
+
+  /// No description provided for @newsDeleted.
+  ///
+  /// In zh, this message translates to:
+  /// **'新聞已刪除'**
+  String get newsDeleted;
+
+  /// No description provided for @manualRefreshTitle.
+  ///
+  /// In zh, this message translates to:
+  /// **'確認立即更新'**
+  String get manualRefreshTitle;
+
+  /// No description provided for @manualRefreshExplanation.
+  ///
+  /// In zh, this message translates to:
+  /// **'確認後會啟動後端背景擷取工作，所需時間可能不同；你可以離開 App，新聞不會立即出現。'**
+  String get manualRefreshExplanation;
+
+  /// No description provided for @confirmUpdate.
+  ///
+  /// In zh, this message translates to:
+  /// **'確認更新'**
+  String get confirmUpdate;
+
+  /// No description provided for @manualRunFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'無法啟動更新，請重新嘗試'**
+  String get manualRunFailed;
 }
 
 class _AppLocalizationsDelegate
