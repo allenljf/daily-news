@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/app_localizations.dart';
+import '../theme/app_spacing.dart';
 import 'auth_controller.dart';
 
 final class SignInScreen extends ConsumerWidget {
@@ -9,18 +11,19 @@ final class SignInScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final signInState = ref.watch(authControllerProvider);
+    final localizations = AppLocalizations.of(context);
     return Scaffold(
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(AppSpacing.large),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Daily News',
+                localizations.appTitle,
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.large),
               FilledButton.icon(
                 onPressed: signInState.isLoading
                     ? null
@@ -33,11 +36,11 @@ final class SignInScreen extends ConsumerWidget {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.login),
-                label: const Text('使用 Google 登入'),
+                label: Text(localizations.signInWithGoogle),
               ),
               if (signInState.hasError) ...[
-                const SizedBox(height: 16),
-                const Text('登入失敗，請重新嘗試'),
+                const SizedBox(height: AppSpacing.medium),
+                Text(localizations.signInFailed),
               ],
             ],
           ),

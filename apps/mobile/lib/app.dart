@@ -1,37 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class DailyNewsApp extends StatelessWidget {
-  const DailyNewsApp({super.key});
+import 'core/routing/app_router.dart';
+import 'core/theme/app_theme.dart';
+import 'l10n/app_localizations.dart';
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Daily News',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-      ),
-      home: const _ProtectedLoadingScreen(),
-    );
-  }
-}
+final class DailyNewsApp extends ConsumerWidget {
+  const DailyNewsApp({this.locale, super.key});
 
-class _ProtectedLoadingScreen extends StatelessWidget {
-  const _ProtectedLoadingScreen();
+  final Locale? locale;
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text('正在載入…'),
-          ],
-        ),
-      ),
+  Widget build(BuildContext context, WidgetRef ref) {
+    return MaterialApp.router(
+      routerConfig: ref.watch(appRouterProvider),
+      locale: locale,
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      onGenerateTitle: (context) => AppLocalizations.of(context).appTitle,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
     );
   }
 }

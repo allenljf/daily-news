@@ -1,0 +1,14 @@
+{
+  "@@locale": "zh",
+  "appTitle": "每日新聞",
+  "loading": "正在載入…",
+  "signInWithGoogle": "使用 Google 登入",
+  "signInFailed": "登入失敗，請重新嘗試",
+  "lastUpdated": "最近更新時間",
+  "neverUpdated": "尚未更新",
+  "updateNow": "立即更新",
+  "runQueued": "排隊中",
+  "runRunning": "更新中",
+  "homeLoadFailed": "無法讀取更新狀態",
+  "retry": "重試"
+}
