@@ -1,6 +1,6 @@
 import 'problem_details_dto.dart';
 
-enum ApiFailureKind { problem, network, cancelled, invalidResponse }
+enum ApiFailureKind { problem, http, network, cancelled, invalidResponse }
 
 final class ApiFailure implements Exception {
   const ApiFailure._({
@@ -23,6 +23,13 @@ final class ApiFailure implements Exception {
 
   const ApiFailure.network()
     : this._(kind: ApiFailureKind.network, title: 'Network request failed');
+
+  const ApiFailure.http(int statusCode)
+    : this._(
+        kind: ApiFailureKind.http,
+        title: 'HTTP request failed',
+        statusCode: statusCode,
+      );
 
   const ApiFailure.cancelled()
     : this._(kind: ApiFailureKind.cancelled, title: 'Request cancelled');

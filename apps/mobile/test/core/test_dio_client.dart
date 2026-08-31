@@ -27,6 +27,21 @@ void main() {
       );
     });
 
+    test('does not send the token to a different absolute origin', () async {
+      final authSession = _FakeAuthSession('fixture-firebase-credential');
+      final adapter = _RecordingAdapter.json(statusCode: 200, body: const {});
+      final dio = createDioClient(
+        baseUrl: Uri.parse('https://api.example.test/v1/'),
+        authSession: authSession,
+      )..httpClientAdapter = adapter;
+
+      await dio.get<Map<String, Object?>>(
+        'https://untrusted.example.test/collect',
+      );
+
+      expect(adapter.lastRequest?.headers, isNot(contains('Authorization')));
+    });
+
     test('signs out when the API rejects the session with 401', () async {
       final authSession = _FakeAuthSession('fixture-expired-credential');
       final adapter = _RecordingAdapter.json(
@@ -75,6 +90,32 @@ void main() {
       ),
     );
   });
+
+  test(
+    'keeps a non-Problem HTTP response distinct from network failure',
+    () async {
+      final authSession = _FakeAuthSession('fixture-valid-credential');
+      final dio =
+          createDioClient(
+              baseUrl: Uri.parse('https://api.example.test/v1/'),
+              authSession: authSession,
+            )
+            ..httpClientAdapter = _RecordingAdapter.json(
+              statusCode: 503,
+              body: const {'message': 'Temporarily unavailable'},
+            );
+      final client = ApiClient(dio);
+
+      await expectLater(
+        client.getJson('news'),
+        throwsA(
+          isA<ApiFailure>()
+              .having((failure) => failure.kind, 'kind', ApiFailureKind.http)
+              .having((failure) => failure.statusCode, 'statusCode', 503),
+        ),
+      );
+    },
+  );
 
   test('decodes a cursor page DTO with its next cursor', () {
     final page = CursorPageDto<_ItemDto>.fromJson(const {

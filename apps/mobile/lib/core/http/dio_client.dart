@@ -16,23 +16,28 @@ Dio createDioClient({required Uri baseUrl, required AuthSession authSession}) {
       headers: const {Headers.acceptHeader: Headers.jsonContentType},
     ),
   );
-  dio.interceptors.add(_FirebaseAuthInterceptor(authSession));
+  dio.interceptors.add(
+    _FirebaseAuthInterceptor(authSession, apiOrigin: baseUrl.origin),
+  );
   return dio;
 }
 
 final class _FirebaseAuthInterceptor extends Interceptor {
-  _FirebaseAuthInterceptor(this._authSession);
+  _FirebaseAuthInterceptor(this._authSession, {required this.apiOrigin});
 
   final AuthSession _authSession;
+  final String apiOrigin;
 
   @override
   void onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
-    final token = await _authSession.getIdToken();
-    if (token != null && token.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer $token';
+    if (options.uri.origin == apiOrigin) {
+      final token = await _authSession.getIdToken();
+      if (token != null && token.isNotEmpty) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
     }
     handler.next(options);
   }

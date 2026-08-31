@@ -55,9 +55,13 @@ final class ApiClient {
     }
 
     final problem = _decodeProblem(error.response?.data);
-    return problem == null
+    if (problem != null) {
+      return ApiFailure.problem(problem);
+    }
+    final statusCode = error.response?.statusCode;
+    return statusCode == null
         ? const ApiFailure.network()
-        : ApiFailure.problem(problem);
+        : ApiFailure.http(statusCode);
   }
 
   static ProblemDetailsDto? _decodeProblem(Object? data) {
