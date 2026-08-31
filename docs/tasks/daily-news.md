@@ -372,13 +372,15 @@ F1 先產生 App，F2/F3 共享 core contracts 可順序執行；F4、F5 在 int
 **Parallel:** no — 所有 mobile task 的基礎。  
 **Files:** Create `apps/mobile/` via `flutter create`, `apps/mobile/lib/{app.dart,main.dart}`, `apps/mobile/analysis_options.yaml`, `apps/mobile/pubspec.yaml`, `apps/mobile/test/app_test.dart`.
 
-- [ ] **Red:** 將初始 widget test 改為期待受保護 app loading screen；`flutter test` 應因 app root 尚未建立而失敗。
-- [ ] **Run Red:** `cd apps/mobile && flutter test test/app_test.dart`。
-- [ ] **Green:** 建立 Material 3 root、`ProviderScope`、`flutter_lints`、Riverpod、Dio、go_router、Firebase core/auth、json serialization dependencies；Firebase config 僅使用 client config，不加入 service secret。
-- [ ] **Run Green:** `cd apps/mobile && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`。
-- [ ] **Commit:** `git add apps/mobile && git commit -m "build: scaffold Flutter news app"`。
+- [x] **Red:** 將初始 widget test 改為期待受保護 app loading screen；`flutter test` 應因 app root 尚未建立而失敗。
+- [x] **Run Red:** `cd apps/mobile && flutter test test/app_test.dart`。
+- [x] **Green:** 建立 Material 3 root、`ProviderScope`、`flutter_lints`、Riverpod、Dio、go_router、Firebase core/auth、json serialization dependencies；Firebase config 僅使用 client config，不加入 service secret。
+- [x] **Run Green:** `cd apps/mobile && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test`。
+- [x] **Commit:** `git add apps/mobile && git commit -m "build: scaffold Flutter news app"`。
 
 **完成紀錄：**
+
+- 2026-08-31：Red：以受保護 loading screen 的 widget test 取代初始測試；修正測試本身缺少 Material 型別匯入後，`cd apps/mobile && flutter test test/app_test.dart` 依預期失敗，原因是畫面未顯示「正在載入…」。Green：以 `flutter create --empty --platforms=android,ios` 建立 App，加入 Material 3 `DailyNewsApp`、`ProviderScope`、loading screen，並加入 Riverpod、Dio、go_router、Firebase core/auth、JSON serialization 與 codegen 依賴；未加入 Firebase 設定、server secret 或真實憑證。Run Green：`cd apps/mobile && dart run build_runner build --delete-conflicting-outputs` 成功（目前 build_runner 將該相容參數標為已忽略），`flutter analyze` 為 `No issues found!`，`flutter test` 為 `1 passed`，`python3 ../../flutter-dev-guide/tools/check-rules.py --files lib/app.dart lib/main.dart test/app_test.dart` 通過。Commit `ccb4ae8`（`build: scaffold Flutter news app`）。
 
 ### F2: 實作 Flutter auth、Dio client 與 typed API transport
 
