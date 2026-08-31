@@ -388,13 +388,15 @@ F1 先產生 App，F2/F3 共享 core contracts 可順序執行；F4、F5 在 int
 **Parallel:** no — 所有 feature Repository 依賴它。  
 **Files:** Create `apps/mobile/lib/core/{auth/,http/,api/}`, `apps/mobile/test/core/test_dio_client.dart`.
 
-- [ ] **Red:** 測試 Dio auth interceptor 在有 Firebase token 時加 Bearer header、401 時觸發 sign-out、Problem Details 轉成 typed `ApiFailure`、cursor page DTO 能 decode。
-- [ ] **Run Red:** `cd apps/mobile && flutter test test/core/test_dio_client.dart`，預期失敗。
-- [ ] **Green:** 實作 `AuthRepository`、Google Sign-In screen flow、Dio provider、cancel token、API DTO；只讓 Remote Service 使用 Dio，Repository 對上層回 domain models／typed failure。
-- [ ] **Run Green:** `cd apps/mobile && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test test/core/test_dio_client.dart`。
-- [ ] **Commit:** `git add apps/mobile && git commit -m "feat: add mobile auth and API client"`。
+- [x] **Red:** 測試 Dio auth interceptor 在有 Firebase token 時加 Bearer header、401 時觸發 sign-out、Problem Details 轉成 typed `ApiFailure`、cursor page DTO 能 decode。
+- [x] **Run Red:** `cd apps/mobile && flutter test test/core/test_dio_client.dart`，預期失敗。
+- [x] **Green:** 實作 `AuthRepository`、Google Sign-In screen flow、Dio provider、cancel token、API DTO；只讓 Remote Service 使用 Dio，Repository 對上層回 domain models／typed failure。
+- [x] **Run Green:** `cd apps/mobile && dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test test/core/test_dio_client.dart`。
+- [x] **Commit:** `git add apps/mobile && git commit -m "feat: add mobile auth and API client"`。
 
 **完成紀錄：**
+
+- 2026-08-31：Red：先新增 `test/core/test_dio_client.dart`，以真實 Dio interceptor 與受控 `HttpClientAdapter` fixture 驗證 Bearer Firebase ID token、401 sign-out、Problem Details → typed `ApiFailure`，並以 literal fixture 驗證 generic cursor page DTO；`cd apps/mobile && flutter test test/core/test_dio_client.dart` 因 `core/{auth,http,api}` 尚不存在而在 compilation 失敗，符合缺少 F2 contract 的預期。Green：新增 SDK-independent `AuthRepository`／`AuthGateway`／`AuthUser`，Firebase + Google Sign-In adapter、Riverpod auth state/controller、sign-in screen 與 `AuthGate`；新增有明確 timeout、HTTPS base URL、Bearer interceptor 與 401 session termination 的 Dio client/provider，以及不暴露 Dio 的 `ApiClient`、`ApiCancelToken`、generated `ProblemDetailsDto`／`CursorPageDto` 與 typed `ApiFailure`。token 僅由 Firebase Auth SDK 於 request 時取得，未自行持久化或 log；未加入 Firebase Admin／server secret。新增 `google_sign_in ^7.2.0`，並將既有 `json_annotation` constraint 更新為 `^4.12.0` 以符合 codegen 要求。Run Green：精確命令 chain `dart run build_runner build --delete-conflicting-outputs && flutter analyze && flutter test test/core/test_dio_client.dart` exit 0；build_runner 成功且寫入 0 個變更（該版本提示相容參數已移除並忽略），analyze 為 `No issues found!`，F2 tests 為 `4 passed`。額外 regression `flutter test` 為既有 app test `1 passed`；`python3 flutter-dev-guide/tools/check-rules.py --staged` 與 `git diff --cached --check` 均通過。Implementation commit `2bfd610`（`feat: add mobile auth and API client`）；未修改未追蹤 `android-dev-guide/`。
 
 ### F3: 實作 App router、theme 與首頁更新狀態
 
