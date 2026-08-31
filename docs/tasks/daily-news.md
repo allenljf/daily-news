@@ -350,13 +350,15 @@ class SourceAdapter(Protocol):
 **Parallel:** no — 組裝 Run state、registry 與資料寫入。  
 **Files:** Create `backend/app/jobs/daily_news.py`, `backend/app/ingestion/orchestrator.py`, `backend/tests/ingestion/test_orchestrator.py`; modify `backend/app/ingestion/run_service.py`.
 
-- [ ] **Red:** 建立兩 Category、兩 Source Settings 的 fake adapters；測試每來源至多 10 candidate、重複不新增、同 Article 可關聯兩 Category、單一 adapter failure 僅標記 Attempt、Run 最後正確統計／狀態。
-- [ ] **Run Red:** `cd backend && uv run pytest tests/ingestion/test_orchestrator.py -q`，預期失敗。
-- [ ] **Green:** 實作 `run_ingestion(run_id)`；將 Run 標為 running，逐一處理設定與 transaction 寫 Article/CategoryArticle/Attempt，最後標為 succeeded 或 failed；Cloud Run Job entrypoint 接收 `RUN_ID`。
-- [ ] **Run Green:** 重跑 test 並執行 `cd backend && uv run python -m app.jobs.daily_news --help`。
-- [ ] **Commit:** `git add backend && git commit -m "feat: add daily news ingestion job"`。
+- [x] **Red:** 建立兩 Category、兩 Source Settings 的 fake adapters；測試每來源至多 10 candidate、重複不新增、同 Article 可關聯兩 Category、單一 adapter failure 僅標記 Attempt、Run 最後正確統計／狀態。
+- [x] **Run Red:** `cd backend && uv run pytest tests/ingestion/test_orchestrator.py -q`，預期失敗。
+- [x] **Green:** 實作 `run_ingestion(run_id)`；將 Run 標為 running，逐一處理設定與 transaction 寫 Article/CategoryArticle/Attempt，最後標為 succeeded 或 failed；Cloud Run Job entrypoint 接收 `RUN_ID`。
+- [x] **Run Green:** 重跑 test 並執行 `cd backend && uv run python -m app.jobs.daily_news --help`。
+- [x] **Commit:** `git add backend && git commit -m "feat: add daily news ingestion job"`。
 
 **完成紀錄：**
+
+- 2026-08-31：Red：orchestrator contract 在 module 尚不存在時以 `ModuleNotFoundError` 失敗。Green：新增 per-source isolation／10 candidate quota／global Article dedupe 的 orchestrator，以及 SQLAlchemy store，transaction 內寫入 Article、Category Article、Ingestion Attempt 與 Run counters；同一 Article 可連結兩個 Category。Job module 接收 `RUN_ID`／`--run-id`，並提供可注入 session/work composition 的 `run_job`。Run Green：`tests/ingestion/test_orchestrator.py` 為 `2 passed`，`python -m app.jobs.daily_news --help` 通過；完整 suite 以 verbose run 通過前 28/30、補跑最後 2 個為 `2 passed`，ruff 通過。唯一 warning 為既有 Starlette/httpx deprecation warning。 
 
 ---
 
