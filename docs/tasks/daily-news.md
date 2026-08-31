@@ -334,13 +334,15 @@ class SourceAdapter(Protocol):
 **Parallel:** yes — 可與 I2 並行。  
 **Files:** Create `backend/app/ingestion/{youtube_adapter.py,github_adapter.py,meta_adapter.py,registry.py}`, `backend/tests/ingestion/test_registry.py`.
 
-- [ ] **Red:** 測試 `youtube.com` route 至 YouTube Data API adapter、`github.com` route 至 GitHub REST adapter、Meta URL 在未設定 token 時回明確「未啟用」結果而非 fallback crawler。
-- [ ] **Run Red:** `cd backend && uv run pytest tests/ingestion/test_registry.py -q`，預期失敗。
-- [ ] **Green:** adapter 各自注入 HTTP client 與 token provider；GitHub public request 允許無 token 的受限模式，YouTube／Meta 只有對應 key/token 存在才啟用；不得使用 Gemini 繞過平台權限。
-- [ ] **Run Green:** 重跑 registry tests；確認任何 disabled adapter 不會讓整個 Run 失敗。
-- [ ] **Commit:** `git add backend && git commit -m "feat: add platform source adapters"`。
+- [x] **Red:** 測試 `youtube.com` route 至 YouTube Data API adapter、`github.com` route 至 GitHub REST adapter、Meta URL 在未設定 token 時回明確「未啟用」結果而非 fallback crawler。
+- [x] **Run Red:** `cd backend && uv run pytest tests/ingestion/test_registry.py -q`，預期失敗。
+- [x] **Green:** adapter 各自注入 HTTP client 與 token provider；GitHub public request 允許無 token 的受限模式，YouTube／Meta 只有對應 key/token 存在才啟用；不得使用 Gemini 繞過平台權限。
+- [x] **Run Green:** 重跑 registry tests；確認任何 disabled adapter 不會讓整個 Run 失敗。
+- [x] **Commit:** `git add backend && git commit -m "feat: add platform source adapters"`。
 
 **完成紀錄：**
+
+- 2026-08-31：Red：`cd backend && uv run pytest tests/ingestion/test_registry.py -q` 因 registry module 尚不存在而以 `ModuleNotFoundError` 停於 collection。Green：新增 host-based registry、注入 HTTP client/token provider 的 YouTube、GitHub、Meta adapter boundaries；GitHub 可無 token 運行，YouTube／Meta 未設定憑證會成為明確 disabled result，Meta 不會 fallback 至 Gemini。Run Green：registry tests `2 passed`；全量 backend `28 passed` 且 ruff 通過。Backend commit `8ac6d0b`（`feat: add platform source adapters`）。
 
 ### I4: 實作 Cloud Run Job ingestion orchestrator
 
