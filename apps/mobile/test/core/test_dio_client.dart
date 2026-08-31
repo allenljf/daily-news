@@ -42,7 +42,7 @@ void main() {
       expect(adapter.lastRequest?.headers, isNot(contains('Authorization')));
     });
 
-    test('signs out when the API rejects the session with 401', () async {
+    test('signs out when the configured API origin returns 401', () async {
       final authSession = _FakeAuthSession('fixture-expired-credential');
       final adapter = _RecordingAdapter.json(
         statusCode: 401,
@@ -62,6 +62,27 @@ void main() {
       );
 
       expect(authSession.signOutCount, 1);
+    });
+
+    test('does not sign out when a different origin returns 401', () async {
+      final authSession = _FakeAuthSession('fixture-valid-credential');
+      final adapter = _RecordingAdapter.json(
+        statusCode: 401,
+        body: const {
+          'detail': {'title': 'Authentication required', 'status': 401},
+        },
+      );
+      final dio = createDioClient(
+        baseUrl: Uri.parse('https://api.example.test/v1/'),
+        authSession: authSession,
+      )..httpClientAdapter = adapter;
+
+      await expectLater(
+        dio.get<Object?>('https://untrusted.example.test/collect'),
+        throwsA(isA<DioException>()),
+      );
+
+      expect(authSession.signOutCount, 0);
     });
   });
 

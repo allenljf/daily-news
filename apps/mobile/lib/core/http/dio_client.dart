@@ -44,7 +44,8 @@ final class _FirebaseAuthInterceptor extends Interceptor {
 
   @override
   void onError(DioException error, ErrorInterceptorHandler handler) async {
-    if (error.response?.statusCode == 401) {
+    if (error.requestOptions.uri.origin == apiOrigin &&
+        error.response?.statusCode == 401) {
       try {
         await _authSession.signOut();
       } on Object {
