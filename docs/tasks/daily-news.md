@@ -406,13 +406,15 @@ F1 先產生 App，F2/F3 共享 core contracts 可順序執行；F4、F5 在 int
 **Parallel:** no — 首頁是所有 feature 的 route entry。  
 **Files:** Create `apps/mobile/lib/core/{routing/,theme/}`, `apps/mobile/lib/features/home/{application/,presentation/,data/}`, `apps/mobile/test/features/home/home_screen_test.dart`.
 
-- [ ] **Red:** Widget tests 期待首頁顯示「尚未更新」、成功 Run 的 locale-aware 時間、立即更新按鈕、以及 queued/running 時 disabled 狀態。
-- [ ] **Run Red:** `cd apps/mobile && flutter test test/features/home/home_screen_test.dart`，預期失敗。
-- [ ] **Green:** 以 `go_router` 建 route；Home controller 讀 `GET /ingestion-runs/latest`，只把 View state 暴露為 immutable Riverpod state；所有可見字串由 localization resource 提供。
-- [ ] **Run Green:** `cd apps/mobile && flutter analyze && flutter test test/features/home/home_screen_test.dart`。
-- [ ] **Commit:** `git add apps/mobile && git commit -m "feat: add home refresh status"`。
+- [x] **Red:** Widget tests 期待首頁顯示「尚未更新」、成功 Run 的 locale-aware 時間、立即更新按鈕、以及 queued/running 時 disabled 狀態。
+- [x] **Run Red:** `cd apps/mobile && flutter test test/features/home/home_screen_test.dart`，預期失敗。
+- [x] **Green:** 以 `go_router` 建 route；Home controller 讀 `GET /ingestion-runs/latest`，只把 View state 暴露為 immutable Riverpod state；所有可見字串由 localization resource 提供。
+- [x] **Run Green:** `cd apps/mobile && flutter analyze && flutter test test/features/home/home_screen_test.dart`。
+- [x] **Commit:** `git add apps/mobile && git commit -m "feat: add home refresh status"`。
 
 **完成紀錄：**
+
+- 2026-08-31：Red：新增 `test/features/home/home_screen_test.dart`，以 authenticated provider 與 fake `HomeRepository` override 驗證「尚未更新」、中文 locale 時間 `2026/8/30 08:01`、立即更新 control，以及 queued/running 的 disabled 狀態；`cd apps/mobile && flutter test test/features/home/home_screen_test.dart` 因 Home contracts/provider 與 `DailyNewsApp.locale` 尚不存在而 compilation failed，符合缺少 F3 功能的預期。Green：建立單一 `GoRouter` composition root、Material 3 light/dark theme 與 spacing token；將 auth/loading/sign-in 與 Home 可見文案移入 ARB/Flutter localization resource。Home data flow 為 `HomeScreen -> HomeController -> HomeRepository -> HomeRemoteService -> ApiClient`；remote service 透過 `GET /v1/ingestion-runs/latest` 讀取 backend contract，repository 映射 DTO 與 typed failure，controller 只暴露 immutable `HomeUiState`；Widget 不直接存取 Repository、service 或 Dio。Manual Run 確認 dialog 與 POST 依 task 切分保留給 F5。新增 `flutter_localizations` SDK dependency 與 `intl ^0.20.2`。Fresh verification：`cd apps/mobile && flutter gen-l10n && flutter analyze && flutter test test/features/home/home_screen_test.dart && flutter test` exit 0，analyze 為 `No issues found!`，focused suite `4 passed`，完整 suite `12 passed`；`python3 flutter-dev-guide/tools/check-rules.py --staged` 與 `git diff --cached --check` exit 0。`integration_test/` 尚未接入，完整行程由 F6 建立。Implementation commit `b0f2e0f`（`feat: add home refresh status`）；未修改未追蹤 `android-dev-guide/`。
 
 ### F4: 實作 Category 首頁與動態設定 Bottom Sheet
 
