@@ -159,6 +159,96 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'重試'**
   String get retry;
+
+  /// No description provided for @addCategory.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增新聞類別'**
+  String get addCategory;
+
+  /// No description provided for @categoriesLoadFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'無法讀取新聞類別'**
+  String get categoriesLoadFailed;
+
+  /// No description provided for @categoryName.
+  ///
+  /// In zh, this message translates to:
+  /// **'新聞類別'**
+  String get categoryName;
+
+  /// No description provided for @categoryNameRequired.
+  ///
+  /// In zh, this message translates to:
+  /// **'請輸入新聞類別'**
+  String get categoryNameRequired;
+
+  /// No description provided for @searchKeywords.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜尋關鍵字'**
+  String get searchKeywords;
+
+  /// No description provided for @searchWebsites.
+  ///
+  /// In zh, this message translates to:
+  /// **'搜尋網站'**
+  String get searchWebsites;
+
+  /// No description provided for @unspecifiedWebsite.
+  ///
+  /// In zh, this message translates to:
+  /// **'未指定網站'**
+  String get unspecifiedWebsite;
+
+  /// No description provided for @addSearchWebsite.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增搜尋網站'**
+  String get addSearchWebsite;
+
+  /// No description provided for @websiteNameOrUrl.
+  ///
+  /// In zh, this message translates to:
+  /// **'網站名稱或 URL'**
+  String get websiteNameOrUrl;
+
+  /// No description provided for @add.
+  ///
+  /// In zh, this message translates to:
+  /// **'新增'**
+  String get add;
+
+  /// No description provided for @cancel.
+  ///
+  /// In zh, this message translates to:
+  /// **'取消'**
+  String get cancel;
+
+  /// No description provided for @specialRequirements.
+  ///
+  /// In zh, this message translates to:
+  /// **'其他特殊需求'**
+  String get specialRequirements;
+
+  /// No description provided for @saveSettings.
+  ///
+  /// In zh, this message translates to:
+  /// **'儲存設定'**
+  String get saveSettings;
+
+  /// No description provided for @saving.
+  ///
+  /// In zh, this message translates to:
+  /// **'儲存中…'**
+  String get saving;
+
+  /// No description provided for @categorySaveFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'儲存失敗，請重新嘗試'**
+  String get categorySaveFailed;
 }
 
 class _AppLocalizationsDelegate

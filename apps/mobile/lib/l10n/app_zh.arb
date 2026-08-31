@@ -10,5 +10,20 @@
   "runQueued": "排隊中",
   "runRunning": "更新中",
   "homeLoadFailed": "無法讀取更新狀態",
-  "retry": "重試"
+  "retry": "重試",
+  "addCategory": "新增新聞類別",
+  "categoriesLoadFailed": "無法讀取新聞類別",
+  "categoryName": "新聞類別",
+  "categoryNameRequired": "請輸入新聞類別",
+  "searchKeywords": "搜尋關鍵字",
+  "searchWebsites": "搜尋網站",
+  "unspecifiedWebsite": "未指定網站",
+  "addSearchWebsite": "新增搜尋網站",
+  "websiteNameOrUrl": "網站名稱或 URL",
+  "add": "新增",
+  "cancel": "取消",
+  "specialRequirements": "其他特殊需求",
+  "saveSettings": "儲存設定",
+  "saving": "儲存中…",
+  "categorySaveFailed": "儲存失敗，請重新嘗試"
 }

@@ -41,4 +41,49 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get retry => '重試';
+
+  @override
+  String get addCategory => '新增新聞類別';
+
+  @override
+  String get categoriesLoadFailed => '無法讀取新聞類別';
+
+  @override
+  String get categoryName => '新聞類別';
+
+  @override
+  String get categoryNameRequired => '請輸入新聞類別';
+
+  @override
+  String get searchKeywords => '搜尋關鍵字';
+
+  @override
+  String get searchWebsites => '搜尋網站';
+
+  @override
+  String get unspecifiedWebsite => '未指定網站';
+
+  @override
+  String get addSearchWebsite => '新增搜尋網站';
+
+  @override
+  String get websiteNameOrUrl => '網站名稱或 URL';
+
+  @override
+  String get add => '新增';
+
+  @override
+  String get cancel => '取消';
+
+  @override
+  String get specialRequirements => '其他特殊需求';
+
+  @override
+  String get saveSettings => '儲存設定';
+
+  @override
+  String get saving => '儲存中…';
+
+  @override
+  String get categorySaveFailed => '儲存失敗，請重新嘗試';
 }

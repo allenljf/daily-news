@@ -42,6 +42,28 @@ final class ApiClient {
     }
   }
 
+  Future<T> post<T>(
+    String path, {
+    required Object? data,
+    required T Function(Object? json) decode,
+    ApiCancelToken? cancelToken,
+  }) async {
+    try {
+      final response = await _dio.post<Object?>(
+        path,
+        data: data,
+        cancelToken: cancelToken?.transportToken,
+      );
+      return decode(response.data);
+    } on DioException catch (error) {
+      throw _translate(error);
+    } on FormatException {
+      throw const ApiFailure.invalidResponse();
+    } on TypeError {
+      throw const ApiFailure.invalidResponse();
+    }
+  }
+
   static Map<String, Object?> _decodeJsonObject(Object? json) {
     if (json case final Map<String, Object?> object) {
       return object;

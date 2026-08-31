@@ -423,13 +423,15 @@ F1 先產生 App，F2/F3 共享 core contracts 可順序執行；F4、F5 在 int
 **Parallel:** yes — 可與 F5 並行，只共享 API contract。  
 **Files:** Create `apps/mobile/lib/features/categories/{application/,data/,presentation/}`, `apps/mobile/test/features/categories/category_sheet_test.dart`.
 
-- [ ] **Red:** Widget tests：無 Category 只顯示新增方塊；有 N 個 Category 時最後一格是新增；Bottom Sheet 有名稱／關鍵字／預設來源／特殊需求；新增按鈕開 dialog 並新增可編輯 Source Setting；空 source 不送 API。
-- [ ] **Run Red:** `cd apps/mobile && flutter test test/features/categories/category_sheet_test.dart`，預期失敗。
-- [ ] **Green:** 建立 Category Repository、Riverpod controller 與 stateless content widgets；儲存成功關閉 sheet 並刷新 Categories；欄位錯誤與 submit loading 防止重複送出。
-- [ ] **Run Green:** `cd apps/mobile && flutter analyze && flutter test test/features/categories/category_sheet_test.dart`。
-- [ ] **Commit:** `git add apps/mobile && git commit -m "feat: add category configuration UI"`。
+- [x] **Red:** Widget tests：無 Category 只顯示新增方塊；有 N 個 Category 時最後一格是新增；Bottom Sheet 有名稱／關鍵字／預設來源／特殊需求；新增按鈕開 dialog 並新增可編輯 Source Setting；空 source 不送 API。
+- [x] **Run Red:** `cd apps/mobile && flutter test test/features/categories/category_sheet_test.dart`，預期失敗。
+- [x] **Green:** 建立 Category Repository、Riverpod controller 與 stateless content widgets；儲存成功關閉 sheet 並刷新 Categories；欄位錯誤與 submit loading 防止重複送出。
+- [x] **Run Green:** `cd apps/mobile && flutter analyze && flutter test test/features/categories/category_sheet_test.dart`。
+- [x] **Commit:** `git add apps/mobile && git commit -m "feat: add category configuration UI"`。
 
 **完成紀錄：**
+
+- 2026-09-01：Red：新增 `test/features/categories/category_sheet_test.dart`，以 Home/Category repository provider override 驗證空與有資料的 Category grid、最後新增方塊、完整設定 Bottom Sheet、add-source dialog 和空白來源省略；`cd apps/mobile && flutter test test/features/categories/category_sheet_test.dart` 因 Category contracts/providers/widgets 尚不存在而 compilation failed，符合缺少 F4 功能的預期。Green：新增 Category DTO/remote service/repository 與 `GET/POST /v1/categories` transport，Riverpod controller 將 domain model 轉為 immutable UI state；Home 組合 provider-backed Category section，grid 以穩定 key 顯示 Category 並固定在末尾放新增方塊。Bottom Sheet 包含必填名稱、關鍵字、預設「未指定網站」來源、可動態追加的網站與特殊需求；送出前 trim 並省略空 source，必填錯誤顯示在欄位旁，submitting 時停用儲存與新增來源，成功後關閉 sheet 並透過 Repository 重讀 Categories。Dialog-owned controller 由其 State 成對 dispose；Widget 不直接依賴 Repository、remote service 或 Dio。所有新增文案來自 ARB localization resource，未新增 package dependency。Fresh verification：`cd apps/mobile && flutter gen-l10n && flutter analyze && flutter test test/features/categories/category_sheet_test.dart` exit 0，analyze 為 `No issues found!`，F4 suite `5 passed`；`python3 flutter-dev-guide/tools/check-rules.py --staged` 與 `git diff --cached --check` exit 0。依指示未執行 F4 範圍外的完整 Flutter suite；`integration_test/` 仍由 F6 建立。未修改未追蹤 `android-dev-guide/`。
 
 ### F5: 實作新聞列表、詳情、tag filter 與手動更新 dialog
 

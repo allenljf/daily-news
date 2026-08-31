@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_spacing.dart';
+import '../../../features/categories/presentation/category_home_section.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/home_controller.dart';
 import '../application/home_ui_state.dart';
@@ -41,6 +42,7 @@ final class HomeScreen extends ConsumerWidget {
         data: (homeState) => HomeContent(
           state: homeState,
           onImmediateUpdatePressed: _manualUpdateDeferredToNewsFeature,
+          categoryContent: const CategoryHomeSection(),
         ),
       ),
     );
@@ -53,11 +55,13 @@ final class HomeContent extends StatelessWidget {
   const HomeContent({
     required this.state,
     required this.onImmediateUpdatePressed,
+    required this.categoryContent,
     super.key,
   });
 
   final HomeUiState state;
   final VoidCallback onImmediateUpdatePressed;
+  final Widget categoryContent;
 
   @override
   Widget build(BuildContext context) {
@@ -69,39 +73,49 @@ final class HomeContent extends StatelessWidget {
               .add_Hm()
               .format(updatedAt.toLocal());
 
-    return Align(
-      alignment: Alignment.topRight,
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.large),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Text(
-              localizations.lastUpdated,
-              style: Theme.of(context).textTheme.labelLarge,
+    return Column(
+      children: [
+        Align(
+          alignment: Alignment.topRight,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.large,
+              AppSpacing.medium,
+              AppSpacing.large,
+              0,
             ),
-            const SizedBox(height: AppSpacing.small),
-            Text(formattedUpdatedAt),
-            if (state.runStatus != HomeRunUiStatus.idle) ...[
-              const SizedBox(height: AppSpacing.small),
-              Text(switch (state.runStatus) {
-                HomeRunUiStatus.queued => localizations.runQueued,
-                HomeRunUiStatus.running => localizations.runRunning,
-                HomeRunUiStatus.idle => '',
-              }),
-            ],
-            const SizedBox(height: AppSpacing.medium),
-            FilledButton.icon(
-              onPressed: state.canRequestUpdate
-                  ? onImmediateUpdatePressed
-                  : null,
-              icon: const Icon(Icons.refresh),
-              label: Text(localizations.updateNow),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  localizations.lastUpdated,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: AppSpacing.small),
+                Text(formattedUpdatedAt),
+                if (state.runStatus != HomeRunUiStatus.idle) ...[
+                  const SizedBox(height: AppSpacing.small),
+                  Text(switch (state.runStatus) {
+                    HomeRunUiStatus.queued => localizations.runQueued,
+                    HomeRunUiStatus.running => localizations.runRunning,
+                    HomeRunUiStatus.idle => '',
+                  }),
+                ],
+                const SizedBox(height: AppSpacing.medium),
+                FilledButton.icon(
+                  onPressed: state.canRequestUpdate
+                      ? onImmediateUpdatePressed
+                      : null,
+                  icon: const Icon(Icons.refresh),
+                  label: Text(localizations.updateNow),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+        Expanded(child: categoryContent),
+      ],
     );
   }
 }
