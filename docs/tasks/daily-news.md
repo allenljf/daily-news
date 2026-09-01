@@ -477,14 +477,16 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 **Parallel:** yes — 可與 B2–I4、F1–F6 並行。  
 **Files:** Create `infra/docs/{gcp-setup.md,github-variables.md,secret-inventory.md}`.
 
-- [ ] **Red:** 列出必要設定並執行 `rg -n '(GEMINI_API_KEY|DB_PASSWORD|GITHUB_NEWS_TOKEN|YOUTUBE_API_KEY|ALLOWED_USER_EMAIL)' infra/docs`；確認每個值都有位置、用途、是否可選與不得放置處。
-- [ ] **Green:** 文件化 Cloud SQL、Secret Manager、Cloud Run service/job service accounts、Firebase project、WIF provider、GitHub Variables、最小 IAM role；明確說明 GitHub Action 使用 `id-token: write` 而非 JSON key。
-- [ ] **Verify:** 人工逐項對照需求規格第 9 節；文件不含真實 project id、secret 值、email 或 token。
-- [ ] **Commit:** `git add infra/docs && git commit -m "docs: add GCP and secret setup guide"`。
+- [x] **Red:** 列出必要設定並執行 `rg -n '(GEMINI_API_KEY|DB_PASSWORD|GITHUB_NEWS_TOKEN|YOUTUBE_API_KEY|ALLOWED_USER_EMAIL)' infra/docs`；確認每個值都有位置、用途、是否可選與不得放置處。
+- [x] **Green:** 文件化 Cloud SQL、Secret Manager、Cloud Run service/job service accounts、Firebase project、WIF provider、GitHub Variables、最小 IAM role；明確說明 GitHub Action 使用 `id-token: write` 而非 JSON key。
+- [x] **Verify:** 人工逐項對照需求規格第 9 節；文件不含真實 project id、secret 值、email 或 token。
+- [x] **Commit:** `git add infra/docs && git commit -m "docs: add GCP and secret setup guide"`。
 
 **Done when:** 使用者可在 GCP／GitHub UI 完成所有外部設定，而無需猜測 token 名稱或權限。
 
 **完成紀錄：**
+
+- 2026-09-01：Red：`rg -n '(GEMINI_API_KEY|DB_PASSWORD|GITHUB_NEWS_TOKEN|YOUTUBE_API_KEY|ALLOWED_USER_EMAIL)' infra/docs` 在目錄尚不存在時以 exit 2 停止，確認 O1 文件尚未建立。Green：新增 Cloud SQL／Secret Manager／Firebase／Cloud Run service 與 Job identities／WIF／GitHub Variables 操作文件；runtime identities 分離 API 與 ingestion Job，GitHub deployer identity 僅具部署與 Job invocation 所需權限。文件明確要求 GitHub Actions 以 `id-token: write` + WIF，不使用 service-account JSON key，並列出 staging 前須由使用者完成的外部設定。Verify：設定名稱掃描確認所有必要值均有用途、存放位置、是否可選與禁止位置；人工對照需求規格第 9 節，且以 email／API token／OAuth client-id pattern 掃描確認沒有實值。`git diff --check` 通過。Commit `75983a3`（`docs: add GCP and secret setup guide`）。
 
 ### O2: 容器化 FastAPI service 與 Cloud Run Job
 
