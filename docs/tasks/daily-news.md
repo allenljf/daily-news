@@ -533,10 +533,10 @@ error mapping、transaction boundary、`gofmt`、`go vet ./...` 與 `go test ./.
 **Parallel:** no — 建立於 Category schema and identity boundary。
 **Files:** Create Go News service/repository/handlers and parity tests.
 
-- [ ] **Red:** PostgreSQL + `httptest` tests cover 20-item keyset pagination, opaque cursor continuation/400, source tag filtering, expiry exclusion, global permanent/delete, and 404.
-- [ ] **Green:** preserve `(inserted_at, article_id)` ordering and JSON fields for every `/v1/categories/{categoryId}/news` and `/v1/news/{newsId}` route.
-- [ ] **Verify:** `cd backend && go vet ./... && go test ./...`, plus contract fixture comparison.
-- [ ] **Commit:** verified changes only, `git commit -m "feat: add Go news API parity"`。
+- [x] **Red:** PostgreSQL + `httptest` tests cover 20-item keyset pagination, opaque cursor continuation/400, source tag filtering, expiry exclusion, global permanent/delete, and 404.
+- [x] **Green:** preserve `(inserted_at, article_id)` ordering and JSON fields for every `/v1/categories/{categoryId}/news` and `/v1/news/{newsId}` route.
+- [x] **Verify:** `cd backend && go vet ./... && go test ./...`, plus contract fixture comparison.
+- [x] **Commit:** verified changes only, `git commit -m "feat: add Go news API parity"`。
 
 ### R5: 移植 Ingestion Run state、manual launch 與 active-run transaction
 
@@ -591,6 +591,8 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 **Done when:** 使用者可在 GCP／GitHub UI 完成所有外部設定，而無需猜測 token 名稱或權限。
 
 **完成紀錄：**
+
+- 2026-09-01：Red：新增 cursor tests 後，`cd backend && go test ./internal/news -run TestCursorRoundTripPreservesKeysetPosition` 因 cursor codec 尚未定義而 build failed。Green：加入以 explicit SQL 實作的 News Store 與 authenticated `net/http` handlers；list 固定回傳 20 筆、以 `(category_articles.inserted_at, article_id)` 的 DESC keyset cursor 續頁，支援 `sourceTagId` filter，排除 soft-deleted／expired Article；Article detail、permanent toggle 和 global soft delete 維持既有 JSON names、status codes 及 Problem Details boundary。PostgreSQL + `httptest` integration test 使用 disposable `postgres:16-alpine`，驗證 20+1 keyset、opaque invalid cursor 400、source filter、expiry exclusion、跨兩個 Category 的 global delete、404、GET list/detail、PATCH success/422 與 DELETE 204，並確認每個 News response 的 Flutter 欄位。Verification：`cd backend && gofmt -w internal/news && go vet ./... && go test ./... && python3 -c '<OpenAPI News fixture assertions>' && git diff --check` 通過；OpenAPI fixture 確認三條 News paths 與 `NewsListItem`/`NewsPage` fields，focused Flutter scan 確認現有 client 使用 `sourceTagId`、`next_cursor`、`canonical_url`、`first_seen_at`、`expires_at`。Implementation commit `4e8ae3e`（`feat: add Go news API parity`）；未連 Firebase、GCP 或其他實際外部資源。
 
 - 2026-09-01：Red：新增 Category handler tests 後，`cd backend && go test ./internal/category` 因 `NewHandler` 尚未定義而 build failed。Green：加入 pgx `database/sql` adapter、golang-migrate SQL representation（initial schema + Category Article soft delete）、explicit Category/Source Setting SQL Store 與 transaction-bounded create/update/delete；`/v1/categories` handler 保留 Bearer middleware、422 validation、404 soft-deleted Category 和 204 delete semantics。Go migration integration test 以 disposable `postgres:16-alpine` 建立 `articles,categories,category_articles,ingestion_attempts,ingestion_runs,schema_migrations,source_settings` 和五個 required indexes；Category lifecycle integration test 驗證來源排序／host normalization、replacement soft delete、Category Article soft delete 與 Article 保留。Verification：`cd backend && go mod tidy && gofmt -w internal/category internal/platform && go vet ./... && go test ./... && git diff --check` 通過；focused Flutter scan 確認 Category DTO/remote service 持續使用 `search_keywords`、`special_requirements`、`source_settings`、`website_input`。Implementation commit `c8cf9c9`（`feat: add Go category API and schema parity`）。
 
