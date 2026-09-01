@@ -555,10 +555,10 @@ error mapping、transaction boundary、`gofmt`、`go vet ./...` 與 `go test ./.
 **Parallel:** no — 組裝 Article semantics、Run state 與 Job input。
 **Files:** Create Go ingestion adapters/orchestrator/job tests and commands.
 
-- [ ] **Red:** fake-adapter PostgreSQL tests cover 10-candidate cap, URL-then-title dedupe, shared Article across Categories, soft-deleted suppression, 30-day expiry, per-source failure isolation, Attempt counters, terminal state, and `RUN_ID` handling.
-- [ ] **Green:** migrate adapter seams and orchestrator with context propagation; write Article/Category Article/Attempt/counters in the documented transaction boundary; Job has no HTTP listener.
-- [ ] **Verify:** `cd backend && go vet ./... && go test ./...`; command help/invalid `RUN_ID` tests do not use GCP, secrets, or live sources.
-- [ ] **Commit:** verified changes only, `git commit -m "feat: add Go ingestion job parity"`。
+- [x] **Red:** fake-adapter PostgreSQL tests cover 10-candidate cap, URL-then-title dedupe, shared Article across Categories, soft-deleted suppression, 30-day expiry, per-source failure isolation, Attempt counters, terminal state, and `RUN_ID` handling.
+- [x] **Green:** migrate adapter seams and orchestrator with context propagation; write Article/Category Article/Attempt/counters in the documented transaction boundary; Job has no HTTP listener.
+- [x] **Verify:** `cd backend && go vet ./... && go test ./...`; command help/invalid `RUN_ID` tests do not use GCP, secrets, or live sources.
+- [x] **Commit:** verified changes only, `git commit -m "feat: add Go ingestion job parity"`。
 
 ### R7: Cut over container, CI, and deployment manifests to verified Go image
 
@@ -591,6 +591,8 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 **Done when:** 使用者可在 GCP／GitHub UI 完成所有外部設定，而無需猜測 token 名稱或權限。
 
 **完成紀錄：**
+
+- 2026-09-01：Red：新增 fake-adapter PostgreSQL test 後，`cd backend && go test ./internal/ingestion -run TestOrchestratorPersistsDedupeExpiryAttemptsAndTerminalRun -v` 因 CandidateArticle、SourceWork、Orchestrator 與 Result 尚未定義而 build failed；新增 malformed `RUN_ID` test 後，Job 回傳 1 而非 2。Green：加入 context-first SourceAdapter seam、每來源上限 10 筆的 Orchestrator 與 explicit SQL persistence；每個成功來源以一個 transaction 寫入／重用 Article、Category Article、Attempt 與 Run counters，canonical URL 優先、normalized title 次之，deleted Article 保留為 suppression，new Article 設 30-day expiry。來源錯誤另以 transaction 記錄 failed Attempt 與 error counter，並繼續其他來源；Run 最後設為 succeeded/finished。Job 先驗證 UUID `RUN_ID`，再以 `DATABASE_URL` 開啟 pgx-backed database 並執行 Orchestrator，沒有 HTTP listener。Verification：`cd backend && gofmt -w internal/ingestion cmd/daily-news-job && go vet ./... && go test ./... && git diff --check` 通過；focused integration test 驗證 10-candidate cap、URL/title dedupe、跨 Category Article、suppression、expiry、Attempt counters、terminal status 和來源失敗隔離，Job tests 驗證 missing/malformed `RUN_ID` 與缺 database configuration 都不會假報成功。所有 source adapter 均為 fake，未呼叫 GCP、secrets 或真實來源。Implementation commit `252e7b0`（`feat: add Go ingestion job parity`）。
 
 - 2026-09-01：Red：新增 Run service PostgreSQL integration tests 後，`cd backend && go test ./internal/ingestion -run 'Test(RequestManualMergesConcurrentActiveRun|RunServiceLatestAndCompletedScheduledRun)' -v` 因 `NewRunService`、`NewRunStore` 與 Run types 尚未定義而 build failed；新增 handler test 後因 `NewHandler` 尚未定義而再次 build failed。Green：加入 explicit SQL Run Store、Run service、`net/http` handlers 與 fakeable `JobLauncher` seam；`AcquireManual` 在單一 `BeginTx` 中取得 PostgreSQL transaction-scoped advisory lock、查詢 `queued`/`running` Run、建立 `manual:<uuid>` queued Run 並 commit，只有新建 Run 於 commit 後才 launch。Taipei 日期以 UTC+08 計算；latest 回傳最後 successful timestamp 與 active Run。PostgreSQL + `httptest` tests 驗證 concurrent requests 收斂為一個 active Run、已完成 scheduled Run 不阻擋 manual Run、202 JSON response，以及既有 401 `application/problem+json` body。Verification：`cd backend && gofmt -w internal/ingestion && go vet ./... && go test ./... && python3 -c '<OpenAPI ingestion-run fixture assertions>' && git diff --check` 通過；fixture 確認兩條 Ingestion Run paths、`IngestionRunResponse`/`LatestIngestionRunResponse` JSON fields 和 manual POST 202。Implementation commit `549f61c`（`feat: add Go ingestion run API parity`）；未呼叫真實 Cloud Run、Firebase、GCP 或其他外部資源。
 
