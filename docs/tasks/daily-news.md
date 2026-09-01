@@ -486,13 +486,13 @@ error mapping、transaction boundary、`gofmt`、`go vet ./...` 與 `go test ./.
 - [x] **Red:** 將現有 FastAPI OpenAPI output 與 Flutter remote DTO endpoint use 對照，列出 `/v1` paths、status codes、Problem Details media type 與 JSON field compatibility baseline。
 - [x] **Green:** 將 OpenAPI JSON 正規化後 checked in；將未來 backend 固定決策改為 Go，保留 Python task completion history；建立 Go backend agent guardrails 與完整 migration design；O4 改為等待 Go parity。
 - [x] **Verify:** `cd backend && uv run python -c 'from app.main import create_app; import json; print(json.dumps(create_app().openapi(), ensure_ascii=False, indent=2, sort_keys=True))' | cmp -s - ../docs/contracts/daily-news.openapi.json`、`rg -n 'FastAPI|python -m app.jobs.daily_news|uvicorn' CONTEXT.md docs/requirements/daily-news.md infra/docs backend/AGENTS.md`、`git diff --check`。
-- [ ] **Commit:** `git add CONTEXT.md docs/requirements docs/tasks docs/contracts docs/superpowers/specs infra/docs backend/AGENTS.md && git commit -m "docs: plan Go backend migration"`。
+- [x] **Commit:** `git add CONTEXT.md docs/requirements docs/tasks docs/contracts docs/superpowers/specs infra/docs backend/AGENTS.md && git commit -m "docs: plan Go backend migration"`。
 
 **Done when:** Go design、agent rules、immutable OpenAPI artifact 和 GCP wording 已確認；未寫 Go production code，並等待使用者確認後開始 R1。
 
 **完成紀錄：**
 
-- 2026-09-01：待完成 verification 後回寫實際結果與 commit SHA。
+- 2026-09-01：以既有 FastAPI app 的 deterministic `openapi()` 輸出建立 checked-in baseline，JSON parser 確認 8 個 paths 與 14 個 schemas，且包含全部 7 個 `/v1` paths。`cd backend && uv run python -c 'from app.main import create_app; import json; print(json.dumps(create_app().openapi(), ensure_ascii=False, indent=2, sort_keys=True))' | cmp -s - ../docs/contracts/daily-news.openapi.json` exit 0；目標決策文件的 `rg -n 'FastAPI|python -m app.jobs.daily_news|uvicorn' CONTEXT.md docs/requirements/daily-news.md infra/docs backend/AGENTS.md` 無輸出；`git diff --check` 與 staged `git diff --cached --check` 通過。新增 migration design、Go backend guardrails、Go replacement phase，保留 Python 完成歷史，且 O4 現在依賴 R7 Go parity。Implementation commit `b7e7209`（`docs: plan Go backend migration`）；未寫 Go production code，未修改未追蹤 `.vscode/`、`android-dev-guide/` 或 research note。
 
 ### R1: 建立 Go module、health endpoint 與 local composition roots
 
