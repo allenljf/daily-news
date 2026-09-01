@@ -27,3 +27,9 @@ spec:
                 secretKeyRef:
                   name: DATABASE_URL
                   key: latest
+            - name: GCP_PROJECT_ID
+              value: ${PROJECT_ID}
+            - name: GCP_REGION
+              value: ${REGION}
+            - name: CLOUD_RUN_JOB_NAME
+              value: ${CLOUD_RUN_JOB_NAME}

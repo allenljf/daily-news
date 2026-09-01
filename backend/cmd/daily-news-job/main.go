@@ -47,6 +47,11 @@ func run(ctx context.Context, runID string, stderr io.Writer) int {
 		return exitFailure
 	}
 	defer database.Close()
+	id, err = ingestion.NewRunStore(database).EnsureJobRun(ctx, id)
+	if err != nil {
+		fmt.Fprintln(stderr, "acquire ingestion run:", err)
+		return exitFailure
+	}
 	if _, err = ingestion.NewOrchestrator(database).Run(ctx, id, nil); err != nil {
 		fmt.Fprintln(stderr, "run ingestion:", err)
 		return exitFailure

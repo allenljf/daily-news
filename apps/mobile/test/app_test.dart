@@ -69,8 +69,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        adapter.lastRequest?.uri,
-        Uri.parse('https://api.example.test/v1/ingestion-runs/latest'),
+        adapter.requests.map((request) => request.uri),
+        contains(
+          Uri.parse('https://api.example.test/v1/ingestion-runs/latest'),
+        ),
       );
       expect(find.text('尚未更新'), findsOneWidget);
     },
@@ -109,7 +111,7 @@ final class _AuthenticatedGateway implements AuthGateway {
 }
 
 final class _LatestRunAdapter implements HttpClientAdapter {
-  RequestOptions? lastRequest;
+  final requests = <RequestOptions>[];
 
   @override
   Future<ResponseBody> fetch(
@@ -117,7 +119,7 @@ final class _LatestRunAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
-    lastRequest = options;
+    requests.add(options);
     return ResponseBody.fromString(
       jsonEncode(const {'last_successful_at': null, 'active_run': null}),
       200,

@@ -11,7 +11,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/allenljf/daily-news/backend/internal/api"
 	"github.com/allenljf/daily-news/backend/internal/httpapi"
+	"github.com/allenljf/daily-news/backend/internal/identity"
 	"github.com/allenljf/daily-news/backend/internal/platform"
 )
 
@@ -26,8 +28,21 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	database, err := platform.OpenDB(context.Background(), os.Getenv("DATABASE_URL"))
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+	verifier, err := identity.NewFirebaseVerifier(context.Background())
+	if err != nil {
+		return err
+	}
+	launcher, err := platform.NewCloudRunLauncher(context.Background(), os.Getenv("GCP_PROJECT_ID"), os.Getenv("GCP_REGION"), os.Getenv("CLOUD_RUN_JOB_NAME"))
+	if err != nil {
+		return err
+	}
 
-	server := httpapi.NewServer(address)
+	server := httpapi.NewServerWithHandler(address, api.NewHandler(database, verifier, os.Getenv("ALLOWED_USER_EMAIL"), launcher))
 	shutdownSignalContext, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 

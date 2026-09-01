@@ -22,7 +22,9 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v3
       - name: Execute Cloud Run Job
         run: |
+          RUN_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
           gcloud run jobs execute "${{ vars.CLOUD_RUN_JOB_NAME }}" \
             --project "${{ vars.GCP_PROJECT_ID }}" \
             --region "${{ vars.GCP_REGION }}" \
+            --update-env-vars "RUN_ID=${RUN_ID}" \
             --wait

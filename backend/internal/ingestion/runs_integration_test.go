@@ -80,6 +80,20 @@ func TestRunServiceLatestAndCompletedScheduledRun(t *testing.T) {
 	}
 }
 
+func TestAcquireScheduledUsesTaipeiDayIdempotency(t *testing.T) {
+	database := ingestionIntegrationDatabase(t)
+	defer database.Close()
+	store := NewRunStore(database)
+	first, created, err := store.AcquireScheduled(context.Background(), uuid.New())
+	if err != nil || !created {
+		t.Fatalf("first scheduled run = %#v, %t, %v", first, created, err)
+	}
+	second, created, err := store.AcquireScheduled(context.Background(), uuid.New())
+	if err != nil || created || second.ID != first.ID || second.Trigger != "scheduled" {
+		t.Fatalf("second scheduled run = %#v, %t, %v", second, created, err)
+	}
+}
+
 func TestRunHandlerPreservesAcceptedAndProblemContracts(t *testing.T) {
 	database := ingestionIntegrationDatabase(t)
 	defer database.Close()

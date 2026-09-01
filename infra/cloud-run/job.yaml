@@ -13,7 +13,7 @@ spec:
           containers:
             - image: ${IMAGE_URI}
               command:
-                - ./scripts/run-job.sh
+                - /app/daily-news-job
               resources:
                 limits:
                   cpu: '1'

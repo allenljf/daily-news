@@ -566,10 +566,10 @@ error mapping、transaction boundary、`gofmt`、`go vet ./...` 與 `go test ./.
 **Parallel:** no — only parity-complete implementation may replace runtime wiring.
 **Files:** Modify `backend/{Dockerfile,.dockerignore,README.md}`, `.github/workflows/{ci.yml,deploy.yml}`, `infra/cloud-run/{service.yaml,job.yaml}`; remove Python runtime files only after parity verification.
 
-- [ ] **Red:** container/workflow tests assert one non-root Go image, API binary on `$PORT`, Job binary consumes `RUN_ID`, CI runs Go verification, and manifests retain all resource/identity/secret names.
-- [ ] **Green:** build the Go binaries and replace only image build/command wiring; retain Cloud Run Service + Job, GitHub OIDC/WIF, Secret Manager names, and Flutter contract.
-- [ ] **Verify:** build/run container locally, `actionlint .github/workflows/*.yml`, manifest structural checks, `cd backend && go vet ./... && go test ./...`, schema parity, Flutter integration test, and `git diff --check`.
-- [ ] **Commit:** verified changes only, `git commit -m "build: cut over Daily News backend to Go"`。
+- [x] **Red:** container/workflow tests assert one non-root Go image, API binary on `$PORT`, Job binary consumes `RUN_ID`, CI runs Go verification, and manifests retain all resource/identity/secret names.
+- [x] **Green:** build the Go binaries and replace only image build/command wiring; retain Cloud Run Service + Job, GitHub OIDC/WIF, Secret Manager names, and Flutter contract.
+- [x] **Verify:** build/run container locally, `actionlint .github/workflows/*.yml`, manifest structural checks, `cd backend && go vet ./... && go test ./...`, schema parity, Flutter integration test, and `git diff --check`.
+- [x] **Commit:** verified changes only, `git commit -m "build: cut over Daily News backend to Go"`。
 
 ---
 
@@ -591,6 +591,8 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 **Done when:** 使用者可在 GCP／GitHub UI 完成所有外部設定，而無需猜測 token 名稱或權限。
 
 **完成紀錄：**
+
+- 2026-09-02：Red：Go container/workflow contract tests 先以 `cd backend && uv run pytest tests/test_container_contract.py -q` 失敗，因 Dockerfile 仍是 Python、Job manifest 仍執行 shell script、CI 仍是 uv/pytest。Green：改為 Go 1.27 multi-stage Alpine image，建立 non-root `daily-news` user，產出 `/app/api` 與 `/app/daily-news-job`；API composition mount 全部 `/v1` route families，使用 Firebase ADC、PostgreSQL pool 與官方 Go Cloud Run v2 REST client（ADC）在 manual Run committed 後以 execution override 注入 `RUN_ID`。scheduled workflow 產生 UUID override；Job 對不存在 ID transactionally 建立或合併 `scheduled:<taipei_date>` Run。CI 改跑 Go checks，Cloud Run Job command 改為 Go binary，保留 Service/Job、OIDC/WIF、runtime service accounts 與 `ALLOWED_USER_EMAIL`/`DATABASE_URL` Secret Manager names。Flutter bootstrap test 改為記錄全部首頁並行 HTTP requests，避免以最後一個 Category request 錯誤覆蓋 ingestion-run assertion。Verification：`cd backend && gofmt -w ... && go vet ./... && go test -p 1 ./... -count=1` 通過；container contract `3 passed`，`docker build -t daily-news-backend:go-r7 backend` 成功，inspect 確認 `daily-news ["/app/api"]`，Job 缺 RUN_ID 正確 exit 2；actionlint Docker image 對三個 workflows 通過；`cd apps/mobile && flutter test` 為 25 passed；`git diff --check` 通過。未建立或操作真實 GCP/GitHub 資源。Implementation commit pending.
 
 - 2026-09-01：Red：新增 fake-adapter PostgreSQL test 後，`cd backend && go test ./internal/ingestion -run TestOrchestratorPersistsDedupeExpiryAttemptsAndTerminalRun -v` 因 CandidateArticle、SourceWork、Orchestrator 與 Result 尚未定義而 build failed；新增 malformed `RUN_ID` test 後，Job 回傳 1 而非 2。Green：加入 context-first SourceAdapter seam、每來源上限 10 筆的 Orchestrator 與 explicit SQL persistence；每個成功來源以一個 transaction 寫入／重用 Article、Category Article、Attempt 與 Run counters，canonical URL 優先、normalized title 次之，deleted Article 保留為 suppression，new Article 設 30-day expiry。來源錯誤另以 transaction 記錄 failed Attempt 與 error counter，並繼續其他來源；Run 最後設為 succeeded/finished。Job 先驗證 UUID `RUN_ID`，再以 `DATABASE_URL` 開啟 pgx-backed database 並執行 Orchestrator，沒有 HTTP listener。Verification：`cd backend && gofmt -w internal/ingestion cmd/daily-news-job && go vet ./... && go test ./... && git diff --check` 通過；focused integration test 驗證 10-candidate cap、URL/title dedupe、跨 Category Article、suppression、expiry、Attempt counters、terminal status 和來源失敗隔離，Job tests 驗證 missing/malformed `RUN_ID` 與缺 database configuration 都不會假報成功。所有 source adapter 均為 fake，未呼叫 GCP、secrets 或真實來源。Implementation commit `252e7b0`（`feat: add Go ingestion job parity`）。
 

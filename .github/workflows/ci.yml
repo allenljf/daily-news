@@ -17,9 +17,11 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
-      - run: uv run ruff check .
-      - run: uv run pytest -q
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+      - run: go vet ./...
+      - run: GOFLAGS=-p=1 go test ./...
 
   mobile:
     runs-on: ubuntu-latest

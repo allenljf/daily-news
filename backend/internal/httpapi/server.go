@@ -16,9 +16,14 @@ func NewMux() *http.ServeMux {
 
 // NewServer creates the Cloud Run HTTP server with bounded connection handling.
 func NewServer(address string) *http.Server {
+	return NewServerWithHandler(address, NewMux())
+}
+
+// NewServerWithHandler creates the Cloud Run server for an explicit API handler.
+func NewServerWithHandler(address string, handler http.Handler) *http.Server {
 	return &http.Server{
 		Addr:              address,
-		Handler:           NewMux(),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
