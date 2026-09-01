@@ -503,7 +503,7 @@ error mapping、transaction boundary、`gofmt`、`go vet ./...` 與 `go test ./.
 - [x] **Red:** 以 `httptest` 驗證 `GET /healthz` 回既有 200 JSON，並測試 API shutdown 與 Job 缺 `RUN_ID` 的 non-zero exit boundary。
 - [x] **Green:** 建立 explicit constructors、`http.Server` graceful shutdown、`PORT` listener、config parsing 與 Job command skeleton；不得加入 framework、ORM 或 DI container。
 - [x] **Verify:** `gofmt -w` changed Go files, `cd backend && go vet ./... && go test ./...`，並比對 health response 與 contract baseline。
-- [ ] **Commit:** verified changes only, `git commit -m "build: scaffold Go backend"`。
+- [x] **Commit:** verified changes only, `git commit -m "build: scaffold Go backend"`。
 
 ### R2: 移植 Firebase identity、Problem Details 與 HTTP contract harness
 
@@ -592,7 +592,7 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 
 **完成紀錄：**
 
-- 2026-09-01：Red：新增 Go `httptest` health contract、`http.Server.Shutdown`、`RUN_ID` boundary 及 Cloud Run `PORT` parser tests 後，`cd backend && go test ./...` 因 `NewMux`、`NewServer`、`run`、`APIAddress` 尚未定義而如預期 build failed。Green：建立 Go module、explicit `http.ServeMux`、`http.Server` graceful shutdown composition root、`0.0.0.0:$PORT` parser，及尚未安裝 orchestrator 時不會假成功的 Job skeleton；未加入 web framework、ORM 或 DI container。Verification：`cd backend && gofmt -w cmd/api/main.go cmd/daily-news-job/main.go internal/httpapi/server.go internal/platform/config.go cmd/daily-news-job/main_test.go internal/httpapi/server_test.go internal/platform/config_test.go && go vet ./... && go test ./...` 通過（Job、HTTP API、platform test packages all `ok`；API composition root compiled）；health test assertion 保持 `200 application/json {"status":"ok"}`。待 implementation commit 後補 SHA。
+- 2026-09-01：Red：新增 Go `httptest` health contract、`http.Server.Shutdown`、`RUN_ID` boundary 及 Cloud Run `PORT` parser tests 後，`cd backend && go test ./...` 因 `NewMux`、`NewServer`、`run`、`APIAddress` 尚未定義而如預期 build failed。Green：建立 Go module、explicit `http.ServeMux`、`http.Server` graceful shutdown composition root、`0.0.0.0:$PORT` parser，及尚未安裝 orchestrator 時不會假成功的 Job skeleton；未加入 web framework、ORM 或 DI container。Verification：`cd backend && gofmt -w cmd/api/main.go cmd/daily-news-job/main.go internal/httpapi/server.go internal/platform/config.go cmd/daily-news-job/main_test.go internal/httpapi/server_test.go internal/platform/config_test.go && go vet ./... && go test ./...` 通過（Job、HTTP API、platform test packages all `ok`；API composition root compiled）；health test assertion 保持 `200 application/json {"status":"ok"}`。Implementation commit `3e742be`（`build: scaffold Go backend`）。
 
 - 2026-09-01：Red：`rg -n '(GEMINI_API_KEY|DB_PASSWORD|GITHUB_NEWS_TOKEN|YOUTUBE_API_KEY|ALLOWED_USER_EMAIL)' infra/docs` 在目錄尚不存在時以 exit 2 停止，確認 O1 文件尚未建立。Green：新增 Cloud SQL／Secret Manager／Firebase／Cloud Run service 與 Job identities／WIF／GitHub Variables 操作文件；runtime identities 分離 API 與 ingestion Job，GitHub deployer identity 僅具部署與 Job invocation 所需權限。文件明確要求 GitHub Actions 以 `id-token: write` + WIF，不使用 service-account JSON key，並列出 staging 前須由使用者完成的外部設定。Verify：設定名稱掃描確認所有必要值均有用途、存放位置、是否可選與禁止位置；人工對照需求規格第 9 節，且以 email／API token／OAuth client-id pattern 掃描確認沒有實值。`git diff --check` 通過。Implementation commit `e46bca4`（`docs: add GCP and secret setup guide`）。
 
