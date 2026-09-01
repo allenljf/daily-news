@@ -544,10 +544,10 @@ error mapping、transaction boundary、`gofmt`、`go vet ./...` 與 `go test ./.
 **Parallel:** yes — 與 R4 共用 schema but not route implementation files。
 **Files:** Create Go ingestion run repository/service/handlers and tests.
 
-- [ ] **Red:** tests cover latest status, 202 manual request, completed scheduled Run not blocking manual, and concurrent requests returning the one active Run.
-- [ ] **Green:** use one transaction for active-run acquisition/idempotency, retain `scheduled:<taipei_date>` and `manual:<request-id>`, and inject a Cloud Run Job launcher seam.
-- [ ] **Verify:** concurrent PostgreSQL test, `cd backend && go vet ./... && go test ./...`, and 202/Problem Details fixture comparison.
-- [ ] **Commit:** verified changes only, `git commit -m "feat: add Go ingestion run API parity"`。
+- [x] **Red:** tests cover latest status, 202 manual request, completed scheduled Run not blocking manual, and concurrent requests returning the one active Run.
+- [x] **Green:** use one transaction for active-run acquisition/idempotency, retain `scheduled:<taipei_date>` and `manual:<request-id>`, and inject a Cloud Run Job launcher seam.
+- [x] **Verify:** concurrent PostgreSQL test, `cd backend && go vet ./... && go test ./...`, and 202/Problem Details fixture comparison.
+- [x] **Commit:** verified changes only, `git commit -m "feat: add Go ingestion run API parity"`。
 
 ### R6: 移植 source adapters、dedupe 與 Cloud Run Job orchestrator
 
@@ -591,6 +591,8 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 **Done when:** 使用者可在 GCP／GitHub UI 完成所有外部設定，而無需猜測 token 名稱或權限。
 
 **完成紀錄：**
+
+- 2026-09-01：Red：新增 Run service PostgreSQL integration tests 後，`cd backend && go test ./internal/ingestion -run 'Test(RequestManualMergesConcurrentActiveRun|RunServiceLatestAndCompletedScheduledRun)' -v` 因 `NewRunService`、`NewRunStore` 與 Run types 尚未定義而 build failed；新增 handler test 後因 `NewHandler` 尚未定義而再次 build failed。Green：加入 explicit SQL Run Store、Run service、`net/http` handlers 與 fakeable `JobLauncher` seam；`AcquireManual` 在單一 `BeginTx` 中取得 PostgreSQL transaction-scoped advisory lock、查詢 `queued`/`running` Run、建立 `manual:<uuid>` queued Run 並 commit，只有新建 Run 於 commit 後才 launch。Taipei 日期以 UTC+08 計算；latest 回傳最後 successful timestamp 與 active Run。PostgreSQL + `httptest` tests 驗證 concurrent requests 收斂為一個 active Run、已完成 scheduled Run 不阻擋 manual Run、202 JSON response，以及既有 401 `application/problem+json` body。Verification：`cd backend && gofmt -w internal/ingestion && go vet ./... && go test ./... && python3 -c '<OpenAPI ingestion-run fixture assertions>' && git diff --check` 通過；fixture 確認兩條 Ingestion Run paths、`IngestionRunResponse`/`LatestIngestionRunResponse` JSON fields 和 manual POST 202。Implementation commit `549f61c`（`feat: add Go ingestion run API parity`）；未呼叫真實 Cloud Run、Firebase、GCP 或其他外部資源。
 
 - 2026-09-01：Red：新增 cursor tests 後，`cd backend && go test ./internal/news -run TestCursorRoundTripPreservesKeysetPosition` 因 cursor codec 尚未定義而 build failed。Green：加入以 explicit SQL 實作的 News Store 與 authenticated `net/http` handlers；list 固定回傳 20 筆、以 `(category_articles.inserted_at, article_id)` 的 DESC keyset cursor 續頁，支援 `sourceTagId` filter，排除 soft-deleted／expired Article；Article detail、permanent toggle 和 global soft delete 維持既有 JSON names、status codes 及 Problem Details boundary。PostgreSQL + `httptest` integration test 使用 disposable `postgres:16-alpine`，驗證 20+1 keyset、opaque invalid cursor 400、source filter、expiry exclusion、跨兩個 Category 的 global delete、404、GET list/detail、PATCH success/422 與 DELETE 204，並確認每個 News response 的 Flutter 欄位。Verification：`cd backend && gofmt -w internal/news && go vet ./... && go test ./... && python3 -c '<OpenAPI News fixture assertions>' && git diff --check` 通過；OpenAPI fixture 確認三條 News paths 與 `NewsListItem`/`NewsPage` fields，focused Flutter scan 確認現有 client 使用 `sourceTagId`、`next_cursor`、`canonical_url`、`first_seen_at`、`expires_at`。Implementation commit `4e8ae3e`（`feat: add Go news API parity`）；未連 Firebase、GCP 或其他實際外部資源。
 
