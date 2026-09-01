@@ -1,6 +1,6 @@
 # Daily News
 
-個人每日新聞 App 的核心語言。此 context 同時供 Flutter client、FastAPI backend 與每日擷取工作使用，避免三者對資料關係有不同解讀。
+個人每日新聞 App 的核心語言。此 context 同時供 Flutter client、Go backend 與每日擷取工作使用，避免三者對資料關係有不同解讀。
 
 ## Language
 

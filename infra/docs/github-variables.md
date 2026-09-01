@@ -11,7 +11,7 @@ Federation (WIF); they must never use a service-account JSON key.
 | `GCP_REGION` | Cloud Run region, for example `asia-east1` | deploy and daily-ingestion workflows | Keep service, Job and Artifact Registry in the chosen region where practical |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | Full provider resource name: `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID` | deploy and daily-ingestion workflows | Use the project **number** in this resource name |
 | `GCP_SERVICE_ACCOUNT` | Deployer service-account email | deploy and daily-ingestion workflows | A dedicated GitHub deployment identity, not either runtime identity |
-| `CLOUD_RUN_JOB_NAME` | Cloud Run Job resource name | deploy and daily-ingestion workflows | The Job that runs `python -m app.jobs.daily_news` |
+| `CLOUD_RUN_JOB_NAME` | Cloud Run Job resource name | deploy and daily-ingestion workflows | The Job that runs the Go daily-news Job binary with `RUN_ID` |
 
 ## Workflow requirements
 

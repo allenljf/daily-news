@@ -9,7 +9,7 @@ or issue/PR text.
 | Setting | Required when | Store / inject into | Purpose | Must not be placed in |
 | --- | --- | --- | --- | --- |
 | `ALLOWED_USER_EMAIL` | Always | Secret Manager → API service environment variable | The one Firebase-authenticated email the API permits | Flutter app, GitHub Variables, image, logs |
-| `DATABASE_URL` | Always | Secret Manager → API service and ingestion Job environment variables | Async PostgreSQL connection URL | Git, image, GitHub Variables, logs |
+| `DATABASE_URL` | Always | Secret Manager → API service and ingestion Job environment variables | PostgreSQL connection URL consumed through Go `database/sql` + pgx adapter | Git, image, GitHub Variables, logs |
 | `DB_PASSWORD` | When Cloud SQL uses password authentication | Secret Manager; use it only to construct or rotate `DATABASE_URL` | Cloud SQL database-password credential | Git, image, GitHub Variables, Flutter, logs |
 | `GEMINI_API_KEY` | Only when Gemini Developer API is selected instead of Vertex AI IAM | Secret Manager → ingestion Job environment variable | Gemini grounding requests | Git, image, GitHub Variables, Flutter, logs |
 | `GITHUB_NEWS_TOKEN` | Only for higher GitHub API quota or private resources | Secret Manager → ingestion Job environment variable | GitHub adapter authorization | Git, image, GitHub Variables, Flutter, logs |

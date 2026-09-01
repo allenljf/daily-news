@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建立可獨立複製的 Flutter 開發準則庫，並交付一個由 Flutter、FastAPI、PostgreSQL、Cloud Run 與 GitHub Actions 組成的單一使用者每日新聞 App。
+**Goal:** 建立可獨立複製的 Flutter 開發準則庫，並交付一個由 Flutter、Go、PostgreSQL、Cloud Run 與 GitHub Actions 組成的單一使用者每日新聞 App。
 
-**Architecture:** Flutter 採 View/ViewModel + Repository/Service，Riverpod 只負責 composition 與 UI state，Dio 僅存在 remote service。FastAPI 以 identity、categories、news、ingestion 四個 module 提供 versioned HTTP interface；Cloud Run service 提供 App API，Cloud Run Job 執行 ingestion，GitHub Actions 以 OIDC/WIF 觸發 scheduled Job。
+**Architecture:** Flutter 採 View/ViewModel + Repository/Service，Riverpod 只負責 composition 與 UI state，Dio 僅存在 remote service。Go 以 `net/http`、明確 composition root、`database/sql` + pgx adapter 與 Firebase Admin Go SDK 提供 versioned HTTP interface；Cloud Run service 提供 App API，Cloud Run Job 執行 ingestion，GitHub Actions 以 OIDC/WIF 觸發 scheduled Job。Python task 的完成紀錄是歷史證據；Go replacement phase 才是目前 backend 實作路徑。
 
-**Tech Stack:** Flutter Material 3, `flutter_riverpod`, Dio, `go_router`, `json_serializable`, Firebase Google Sign-In, FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, PostgreSQL, Cloud Run, Secret Manager, GitHub Actions OIDC/WIF, Gemini Google Search grounding, GitHub REST API, YouTube Data API.
+**Tech Stack:** Flutter Material 3, `flutter_riverpod`, Dio, `go_router`, `json_serializable`, Firebase Google Sign-In, Go standard library (`net/http`, `context`, `encoding/json`, `errors`, `testing/httptest`), `database/sql` + pgx adapter, Firebase Admin Go SDK, golang-migrate, PostgreSQL, Cloud Run, Secret Manager, GitHub Actions OIDC/WIF, Gemini Google Search grounding, GitHub REST API, YouTube Data API.
 
 **Spec:** [每日新聞 App 需求與架構規格](../requirements/daily-news.md)
 
@@ -14,7 +14,7 @@
 
 - 每次開始前讀 `CONTEXT.md`、`docs/requirements/daily-news.md` 與本檔；詞彙一律使用 Category、Source Setting、Article、Category Article、Ingestion Run。
 - 僅實作 checkbox 尚未完成，且其 `Depends on` 的所有 task 已勾選的工作；規格改變先更新需求與本檔。
-- 新增 Flutter code 必須遵守未來 `flutter-dev-guide/AGENTS.md`；新增 backend code 必須有單元或整合測試。
+- 新增 Flutter code 必須遵守未來 `flutter-dev-guide/AGENTS.md`；Go backend code 必須遵守 `backend/AGENTS.md`、有單元或整合測試，並在完成前執行 `gofmt`、`go vet ./...`、`go test ./...`。
 - Flutter 不得保存 server secret；LLM key、DB password、GitHub／Meta token 僅可由 Cloud Run 透過 Secret Manager 讀取。
 - App API 一律驗證 Firebase ID token 與 `ALLOWED_USER_EMAIL`；Cloud Run Job 不開放給 Flutter 直接呼叫。
 - `Article` 的 canonical URL hash 唯一；URL 不同時再比對 normalized title hash；刪除為全域 soft delete；預設期限 30 天。
@@ -38,11 +38,13 @@
 |---|---|
 | `AGENTS.md` | repo-level 任務入口與文件／task 接續規則。 |
 | `flutter-dev-guide/` | 可獨立複製的 Flutter 開發準則與稽核工具。 |
-| `backend/app/identity/` | Firebase token 驗證與 email allowlist。 |
-| `backend/app/categories/` | Category／Source Setting 的 CRUD interface 與商業規則。 |
-| `backend/app/news/` | Article read model、cursor、tag filter、永久與刪除。 |
-| `backend/app/ingestion/` | Run lifecycle、來源 adapters、dedupe、Cloud Run Job entrypoint。 |
-| `backend/alembic/` | PostgreSQL schema migrations。 |
+| `backend/cmd/` | Go API 與 Cloud Run Job composition roots。 |
+| `backend/internal/identity/` | Firebase token 驗證與 email allowlist。 |
+| `backend/internal/category/` | Category／Source Setting 的 CRUD 商業規則與 SQL repository。 |
+| `backend/internal/news/` | Article read model、cursor、tag filter、永久與刪除。 |
+| `backend/internal/ingestion/` | Run lifecycle、來源 adapters、dedupe、Cloud Run Job orchestration。 |
+| `backend/migrations/` | golang-migrate PostgreSQL migration representation。 |
+| `docs/contracts/daily-news.openapi.json` | Flutter 與 Go 共用、checked-in 的 HTTP/OpenAPI compatibility contract。 |
 | `apps/mobile/lib/core/` | App-wide routing、Dio、auth、theme、共用 types。 |
 | `apps/mobile/lib/features/` | feature-first View、Riverpod controller、Repository contract。 |
 | `infra/` | 非秘密的 GCP／GitHub deployment configuration 與操作文件。 |
@@ -142,9 +144,9 @@
 
 ---
 
-## Phase B — Backend 基礎與安全 Category interface
+## Phase B — Python/FastAPI backend 基礎與安全 Category interface（完成歷史）
 
-本階段產生可本機測試的 FastAPI／PostgreSQL 最小垂直切片。B2 與 B3 可平行；B4 需要兩者。
+本階段記錄已完成的 Python/FastAPI／PostgreSQL 最小垂直切片，作為 Go parity 的行為證據；不回寫或重作其完成歷史。B2 與 B3 可平行；B4 需要兩者。
 
 ### B1: 建立 backend 測試與設定骨架
 
@@ -467,6 +469,110 @@ F1 先產生 App，F2/F3 共享 core contracts 可順序執行；F4、F5 在 int
 
 ---
 
+## Phase R — Go backend replacement
+
+本階段取代 Python/FastAPI 的實作，並把既有 Python task 視為 parity
+evidence；不重寫其完成歷史。除 R0 外，每個 Go production-code task 都等待
+使用者確認 [`Go migration design`](../superpowers/specs/2026-09-01-go-backend-migration-design.md)。
+所有 Go task 依 `backend/AGENTS.md` 執行 context-first、明確 Problem Details
+error mapping、transaction boundary、`gofmt`、`go vet ./...` 與 `go test ./...`。
+
+### R0: 凍結 Go migration design 與 compatibility contract
+
+**Depends on:** O3, F6
+**Parallel:** no — 建立後續 replacement 的唯一規格與 baseline。
+**Files:** Create `backend/AGENTS.md`, `docs/contracts/daily-news.openapi.json`, `docs/superpowers/specs/2026-09-01-go-backend-migration-design.md`; modify `CONTEXT.md`, `docs/requirements/daily-news.md`, `docs/tasks/daily-news.md`, `infra/docs/{gcp-setup.md,github-variables.md,secret-inventory.md}`.
+
+- [x] **Red:** 將現有 FastAPI OpenAPI output 與 Flutter remote DTO endpoint use 對照，列出 `/v1` paths、status codes、Problem Details media type 與 JSON field compatibility baseline。
+- [x] **Green:** 將 OpenAPI JSON 正規化後 checked in；將未來 backend 固定決策改為 Go，保留 Python task completion history；建立 Go backend agent guardrails 與完整 migration design；O4 改為等待 Go parity。
+- [x] **Verify:** `cd backend && uv run python -c 'from app.main import create_app; import json; print(json.dumps(create_app().openapi(), ensure_ascii=False, indent=2, sort_keys=True))' | cmp -s - ../docs/contracts/daily-news.openapi.json`、`rg -n 'FastAPI|python -m app.jobs.daily_news|uvicorn' CONTEXT.md docs/requirements/daily-news.md infra/docs backend/AGENTS.md`、`git diff --check`。
+- [ ] **Commit:** `git add CONTEXT.md docs/requirements docs/tasks docs/contracts docs/superpowers/specs infra/docs backend/AGENTS.md && git commit -m "docs: plan Go backend migration"`。
+
+**Done when:** Go design、agent rules、immutable OpenAPI artifact 和 GCP wording 已確認；未寫 Go production code，並等待使用者確認後開始 R1。
+
+**完成紀錄：**
+
+- 2026-09-01：待完成 verification 後回寫實際結果與 commit SHA。
+
+### R1: 建立 Go module、health endpoint 與 local composition roots
+
+**Depends on:** R0
+**Parallel:** no — 建立後續 Go package 與測試的執行邊界。
+**Files:** Create `backend/{go.mod,cmd/api/main.go,cmd/daily-news-job/main.go,internal/platform/,internal/httpapi/,contract/}` and Go tests; retain Python implementation until R7.
+
+- [ ] **Red:** 以 `httptest` 驗證 `GET /healthz` 回既有 200 JSON，並測試 API shutdown 與 Job 缺 `RUN_ID` 的 non-zero exit boundary。
+- [ ] **Green:** 建立 explicit constructors、`http.Server` graceful shutdown、`PORT` listener、config parsing 與 Job command skeleton；不得加入 framework、ORM 或 DI container。
+- [ ] **Verify:** `gofmt -w` changed Go files, `cd backend && go vet ./... && go test ./...`，並比對 health response 與 contract baseline。
+- [ ] **Commit:** verified changes only, `git commit -m "build: scaffold Go backend"`。
+
+### R2: 移植 Firebase identity、Problem Details 與 HTTP contract harness
+
+**Depends on:** R1
+**Parallel:** no — 所有 `/v1` route 共用 authentication 與 error boundary。
+**Files:** Create `backend/internal/{identity,httpapi}/` Go implementations and `backend/contract/` tests.
+
+- [ ] **Red:** handler tests 覆蓋 missing/malformed/invalid token 401、non-allowlisted email 403、strict JSON validation 422，並比對 content type/body 與 checked-in artifact。
+- [ ] **Green:** Firebase Admin Go SDK ADC adapter、fake verifier seam、exact email policy、Bearer middleware、typed errors、Problem Details encoder 與 JSON decoder。
+- [ ] **Verify:** `cd backend && go vet ./... && go test ./...`; no test contacts real Firebase.
+- [ ] **Commit:** verified changes only, `git commit -m "feat: add Go API identity and errors"`。
+
+### R3: 移植 PostgreSQL access、migration parity 與 Category CRUD
+
+**Depends on:** R2
+**Parallel:** no — 需要共用 SQL pool 與 authenticated HTTP boundary。
+**Files:** Create Go SQL repositories, `backend/migrations/`, schema parity and Category `httptest`/PostgreSQL tests.
+
+- [ ] **Red:** 用 disposable PostgreSQL 驗證既有 tables/indexes/constraints，及 Category/Source Setting CRUD success、422、404、401 contract cases。
+- [ ] **Green:** 使用 pgx `database/sql` adapter、explicit SQL、golang-migrate representation、Category transaction boundaries 和 `/v1/categories` handlers；schema 結果不得變更。
+- [ ] **Verify:** run schema diff/index assertions, `cd backend && go vet ./... && go test ./...`, and focused Flutter contract review.
+- [ ] **Commit:** verified changes only, `git commit -m "feat: add Go category API and schema parity"`。
+
+### R4: 移植 News read model、cursor、permanence 與 soft delete
+
+**Depends on:** R3
+**Parallel:** no — 建立於 Category schema and identity boundary。
+**Files:** Create Go News service/repository/handlers and parity tests.
+
+- [ ] **Red:** PostgreSQL + `httptest` tests cover 20-item keyset pagination, opaque cursor continuation/400, source tag filtering, expiry exclusion, global permanent/delete, and 404.
+- [ ] **Green:** preserve `(inserted_at, article_id)` ordering and JSON fields for every `/v1/categories/{categoryId}/news` and `/v1/news/{newsId}` route.
+- [ ] **Verify:** `cd backend && go vet ./... && go test ./...`, plus contract fixture comparison.
+- [ ] **Commit:** verified changes only, `git commit -m "feat: add Go news API parity"`。
+
+### R5: 移植 Ingestion Run state、manual launch 與 active-run transaction
+
+**Depends on:** R3
+**Parallel:** yes — 與 R4 共用 schema but not route implementation files。
+**Files:** Create Go ingestion run repository/service/handlers and tests.
+
+- [ ] **Red:** tests cover latest status, 202 manual request, completed scheduled Run not blocking manual, and concurrent requests returning the one active Run.
+- [ ] **Green:** use one transaction for active-run acquisition/idempotency, retain `scheduled:<taipei_date>` and `manual:<request-id>`, and inject a Cloud Run Job launcher seam.
+- [ ] **Verify:** concurrent PostgreSQL test, `cd backend && go vet ./... && go test ./...`, and 202/Problem Details fixture comparison.
+- [ ] **Commit:** verified changes only, `git commit -m "feat: add Go ingestion run API parity"`。
+
+### R6: 移植 source adapters、dedupe 與 Cloud Run Job orchestrator
+
+**Depends on:** R4, R5
+**Parallel:** no — 組裝 Article semantics、Run state 與 Job input。
+**Files:** Create Go ingestion adapters/orchestrator/job tests and commands.
+
+- [ ] **Red:** fake-adapter PostgreSQL tests cover 10-candidate cap, URL-then-title dedupe, shared Article across Categories, soft-deleted suppression, 30-day expiry, per-source failure isolation, Attempt counters, terminal state, and `RUN_ID` handling.
+- [ ] **Green:** migrate adapter seams and orchestrator with context propagation; write Article/Category Article/Attempt/counters in the documented transaction boundary; Job has no HTTP listener.
+- [ ] **Verify:** `cd backend && go vet ./... && go test ./...`; command help/invalid `RUN_ID` tests do not use GCP, secrets, or live sources.
+- [ ] **Commit:** verified changes only, `git commit -m "feat: add Go ingestion job parity"`。
+
+### R7: Cut over container, CI, and deployment manifests to verified Go image
+
+**Depends on:** R2, R4, R5, R6
+**Parallel:** no — only parity-complete implementation may replace runtime wiring.
+**Files:** Modify `backend/{Dockerfile,.dockerignore,README.md}`, `.github/workflows/{ci.yml,deploy.yml}`, `infra/cloud-run/{service.yaml,job.yaml}`; remove Python runtime files only after parity verification.
+
+- [ ] **Red:** container/workflow tests assert one non-root Go image, API binary on `$PORT`, Job binary consumes `RUN_ID`, CI runs Go verification, and manifests retain all resource/identity/secret names.
+- [ ] **Green:** build the Go binaries and replace only image build/command wiring; retain Cloud Run Service + Job, GitHub OIDC/WIF, Secret Manager names, and Flutter contract.
+- [ ] **Verify:** build/run container locally, `actionlint .github/workflows/*.yml`, manifest structural checks, `cd backend && go vet ./... && go test ./...`, schema parity, Flutter integration test, and `git diff --check`.
+- [ ] **Commit:** verified changes only, `git commit -m "build: cut over Daily News backend to Go"`。
+
+---
+
 ## Phase O — GCP、GitHub Actions 與上線驗收
 
 O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署、排程。任何真實帳號、project、token 設定均由使用者完成，不寫入 repo。
@@ -488,7 +594,7 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 
 - 2026-09-01：Red：`rg -n '(GEMINI_API_KEY|DB_PASSWORD|GITHUB_NEWS_TOKEN|YOUTUBE_API_KEY|ALLOWED_USER_EMAIL)' infra/docs` 在目錄尚不存在時以 exit 2 停止，確認 O1 文件尚未建立。Green：新增 Cloud SQL／Secret Manager／Firebase／Cloud Run service 與 Job identities／WIF／GitHub Variables 操作文件；runtime identities 分離 API 與 ingestion Job，GitHub deployer identity 僅具部署與 Job invocation 所需權限。文件明確要求 GitHub Actions 以 `id-token: write` + WIF，不使用 service-account JSON key，並列出 staging 前須由使用者完成的外部設定。Verify：設定名稱掃描確認所有必要值均有用途、存放位置、是否可選與禁止位置；人工對照需求規格第 9 節，且以 email／API token／OAuth client-id pattern 掃描確認沒有實值。`git diff --check` 通過。Implementation commit `e46bca4`（`docs: add GCP and secret setup guide`）。
 
-### O2: 容器化 FastAPI service 與 Cloud Run Job
+### O2: 容器化 Python/FastAPI service 與 Cloud Run Job（完成歷史）
 
 **Depends on:** B4, N1, N2, I4  
 **Parallel:** no — 同一 image 必須同時服務 HTTP 與 Job entrypoint。  
@@ -519,9 +625,9 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 
 - 2026-09-01：Red：以 Docker image 執行 actionlint：`docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest .github/workflows/daily-ingestion.yml` 在 workflow 尚不存在時以 exit 3 停止，顯示無法讀取檔案。Green：新增 CI、WIF deploy 與 UTC 00:00 daily-ingestion workflows，以及以 image／runtime service-account placeholders 為界的 Cloud Run Service／Job manifests。CI 執行 backend Ruff/pytest、Flutter analyze/test 與 guide self-check；deploy 使用 `google-github-actions/auth@v3` + `setup-gcloud@v3` 建置同一 backend image、render manifests 並部署 service/job；daily workflow 只執行既有 Cloud Run Job。Run Green：actionlint 對三個 workflow 通過；Python YAML structural check 確認 manifests 的 Cloud Run apiVersion/kind；比較 workflow 中 `vars.*` 與 O1 清冊，僅有 `CLOUD_RUN_JOB_NAME`、`GCP_PROJECT_ID`、`GCP_REGION`、`GCP_SERVICE_ACCOUNT`、`GCP_WORKLOAD_IDENTITY_PROVIDER`，且無 `secrets.*` 或 DB／LLM／adapter secret；`git diff --check` 通過。Implementation commit `3bbdad6`（`ci: add Cloud Run deployment and daily job`）。
 
-### O4: 執行受控 staging smoke test
+### O4: 執行受控 staging smoke test（等待 Go parity）
 
-**Depends on:** O3, F6  
+**Depends on:** O3, F6, R7
 **Parallel:** no — 真實外部資源驗收。  
 **Files:** Create `docs/operations/staging-smoke-test.md`; modify `docs/tasks/daily-news.md` 完成紀錄。
 
@@ -530,7 +636,7 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 - [ ] **Verify:** 檢查 Cloud Run／workflow log、`ingestion_runs`／`ingestion_attempts` 統計與 mobile integration results；記錄 pass/fail 和 run id，但不記錄 token／URL query secret。
 - [ ] **Commit:** `git add docs/operations docs/tasks/daily-news.md && git commit -m "docs: record staging smoke test"`。
 
-**Done when:** staging 以真正的 WIF、Cloud Run、Cloud SQL、Firebase 與至少一個公開來源完成端到端工作，且全部失敗判準均未發生。
+**Done when:** staging 以 Go image 與真正的 WIF、Cloud Run、Cloud SQL、Firebase 與至少一個公開來源完成端到端工作，且全部失敗判準均未發生。
 
 **完成紀錄：**
 

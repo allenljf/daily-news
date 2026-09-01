@@ -1,8 +1,8 @@
 # 每日新聞 App 需求與架構規格
 
-> **狀態：已確認**  
-> **確認日：2026-08-30**  
-> **適用範圍：** `flutter-dev-guide/`、未來的 Flutter App、FastAPI backend、PostgreSQL、Cloud Run 與 GitHub Actions。  
+> **狀態：Go 遷移設計待確認**
+> **原始確認日：2026-08-30；遷移更新日：2026-09-01**
+> **適用範圍：** `flutter-dev-guide/`、未來的 Flutter App、Go backend、PostgreSQL、Cloud Run 與 GitHub Actions。
 > **後續工作入口：** 實作前必讀本文件與 `docs/tasks/daily-news.md`；task 清單建立後，以它的未完成項目為唯一執行範圍。
 
 ## 1. 目標與範圍
@@ -23,8 +23,9 @@
 | 決策 | 結論 | 理由 |
 |---|---|---|
 | 使用者模型 | 單一使用者 | 不建立 `user_id`、帳號管理或多租戶模型。 |
-| Client 認證 | Firebase Google Sign-In + email allowlist | 手機不保存秘密；FastAPI 驗證 Firebase ID token，只放行設定中的 email。 |
-| 後端形態 | FastAPI Cloud Run service + 共用程式碼的 Cloud Run Job | app API 與長時間每日擷取各自有合適的執行生命週期。 |
+| Client 認證 | Firebase Google Sign-In + email allowlist | 手機不保存秘密；Go API 驗證 Firebase ID token，只放行設定中的 email。 |
+| 後端形態 | Go `net/http` Cloud Run service + 共用程式碼的 Cloud Run Job | API 與長時間每日擷取各自有合適的執行生命週期；不用大型 web framework、ORM 或 DI container。 |
+| Go backend | `net/http`、`context`、`encoding/json`、`errors`、`testing/httptest`、`database/sql` + pgx stdlib adapter、Firebase Admin Go SDK、golang-migrate | 以明確 composition root、context propagation、錯誤對應與 transaction boundary 展示 Go 能力。 |
 | 排程 | GitHub Actions 於台北 08:00 觸發 Cloud Run Job；首頁可手動觸發同一 Job | 保留使用者指定的 GitHub Actions，並讓使用者能非同步要求一次更新。 |
 | GitHub→GCP 身分 | GitHub OIDC + Workload Identity Federation | 不使用長效 service-account JSON key。 |
 | App 架構 | Flutter UI + data layers；View/ViewModel、Repository、Service | Flutter 官方架構建議；domain/use case 只在跨 repository 或複雜且重用時加入。 |
@@ -171,7 +172,7 @@ IngestionRun 1 ─── * IngestionAttempt
 
 ## 7. HTTP interface
 
-所有端點前綴為 `/v1`，要求 `Authorization: Bearer <Firebase ID token>`。FastAPI 產生的 OpenAPI 文件是 HTTP contract 的唯一真相；資料庫 ORM entity 不得成為 response model。
+所有端點前綴為 `/v1`，要求 `Authorization: Bearer <Firebase ID token>`。checked-in 的 [`docs/contracts/daily-news.openapi.json`](../contracts/daily-news.openapi.json) 是 HTTP/OpenAPI contract 的唯一真相；Go handler DTO 與資料庫 row model 不得成為彼此的 contract，Flutter 不需變更 API。
 
 | Method | Path | 用途 |
 |---|---|---|
@@ -194,7 +195,7 @@ IngestionRun 1 ─── * IngestionAttempt
 
 GitHub Actions 預定以 UTC 00:00 觸發，目標為台北時間 08:00。GitHub schedule 可能延遲，因此 scheduled Run 以 `scheduled:<taipei_date>` 作為 idempotency key，而非假設準時啟動。workflow 透過 OIDC/WIF 取得短期 GCP 身分，觸發 Cloud Run Job。
 
-Flutter 的「立即更新」送出 manual Run 請求。FastAPI 建立唯一的 `manual:<request-id>` idempotency key，再以具備最小 `run.jobs.run` 權限的 service account 啟動同一 Cloud Run Job。manual Run 可在 scheduled Run 成功後的同一天再執行，讓使用者取得較新的資料；但系統全域同時只能有一個 `queued` 或 `running` Run。若已有進行中的 Run，API 回傳該 Run 而不建立第二個工作。這保護 LLM／來源額度並避免同時寫入造成競態。
+Flutter 的「立即更新」送出 manual Run 請求。Go API 建立唯一的 `manual:<request-id>` idempotency key，再以具備最小 `run.jobs.run` 權限的 service account 啟動同一 Cloud Run Job。manual Run 可在 scheduled Run 成功後的同一天再執行，讓使用者取得較新的資料；但系統全域同時只能有一個 `queued` 或 `running` Run。若已有進行中的 Run，API 回傳該 Run 而不建立第二個工作。這保護 LLM／來源額度並避免同時寫入造成競態。
 
 Job 依序讀取每個有效的 Category 與 Source Setting；每一組至多保留 10 個候選。每個來源的寫入互不影響：單一來源失敗只留下 Attempt 與 error summary，絕不清除既有 Article。每個 Run 記錄候選、寫入、重複與失敗數。
 
@@ -239,12 +240,14 @@ Firebase client configuration 是可公開的 client 設定，不是 server secr
 - Bottom Sheet、空／有 Category 首頁、新聞列表的 loading/empty/error/success 有 widget tests。
 - Google Sign-In、儲存 Category 與讀取第一頁新聞有 integration tests。
 
-### 10.2 FastAPI 與 PostgreSQL
+### 10.2 Go 與 PostgreSQL
 
+- checked-in OpenAPI artifact 必須鎖定 `/v1` paths、JSON schema、status codes 與 `application/problem+json`；Flutter API client 不需改動。
 - migration 可由空資料庫升級，並驗證必要 index／unique constraint。
 - 測試 Firebase token 缺失、無效與 email 不符時分別拒絕。
 - 測試 Category CRUD、cursor、來源 tag filter、20 筆 page size、Article 全域永久與 soft delete。
 - 測試 canonical URL／標題去重、30 天到期、scheduled 台北日期 idempotency、manual Run 合併進行中工作、單一來源失敗不影響其他來源。
+- Go 驗證至少執行 `gofmt`、`go vet ./...` 與 `go test ./...`；HTTP handler test 使用 `httptest`，PostgreSQL integration test 沿用 schema assertions。
 
 ### 10.3 部署與操作
 
@@ -271,7 +274,7 @@ Firebase client configuration 是可公開的 client 設定，不是 server secr
 - [json_serializable](https://pub.dev/packages/json_serializable)
 - [Flutter SQLite recipe](https://docs.flutter.dev/cookbook/persistence/sqlite)
 - [Firebase Crashlytics for Flutter](https://firebase.google.com/docs/crashlytics/flutter/get-started)
-- [Cloud Run FastAPI quickstart](https://cloud.google.com/run/docs/quickstarts/build-and-deploy/deploy-python-fastapi-service)
+- [Cloud Run Go service quickstart](https://cloud.google.com/run/docs/quickstarts/build-and-deploy/deploy-go-service)
 - [GitHub OIDC/WIF for deployment pipelines](https://cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines)
 - [Gemini Google Search grounding](https://ai.google.dev/gemini-api/docs/google-search)
 - [Gemini URL Context](https://ai.google.dev/gemini-api/docs/url-context)

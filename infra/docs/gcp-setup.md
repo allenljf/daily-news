@@ -32,7 +32,7 @@ deploy and the API cannot receive source-adapter credentials unnecessarily.
 
 | Identity | Used by | Minimum responsibilities |
 | --- | --- | --- |
-| API runtime service account | Cloud Run FastAPI service | Access its own `DATABASE_URL` and `ALLOWED_USER_EMAIL` secrets; connect to Cloud SQL; use ADC for Firebase Admin token verification |
+| API runtime service account | Cloud Run Go `net/http` service | Access its own `DATABASE_URL` and `ALLOWED_USER_EMAIL` secrets; connect to Cloud SQL; use ADC for Firebase Admin token verification |
 | Ingestion runtime service account | Cloud Run Job | Access `DATABASE_URL` plus only enabled adapter secrets; connect to Cloud SQL; emit Job logs |
 | GitHub deployer service account | GitHub Actions via WIF | Deploy/update the Cloud Run service and Job, read the image from Artifact Registry, and execute the Job; it is not a runtime identity |
 
@@ -79,8 +79,10 @@ and service accounts, then remove elevated setup access when no longer needed.
 
 ## 5. Deploy-time configuration boundary
 
-The later O2 task will build one image used by both Cloud Run resources. The
-service starts the FastAPI API; the Job runs `python -m app.jobs.daily_news`.
+The Go replacement phase will build one image used by both Cloud Run resources.
+The service starts the Go API binary; the Job runs the Go daily-news Job binary
+with `RUN_ID` as its explicit input. The Cloud Run resource names, runtime
+service accounts, Secret Manager names, and WIF boundary stay unchanged.
 Attach the correct runtime service account and only its referenced secrets to
 each resource at deployment time. Do not bake `.env`, Firebase Admin keys,
 database URLs, or adapter credentials into the image.
@@ -98,9 +100,10 @@ You must complete these external steps before a real staging deployment:
 - Configure WIF and repository Variables according to
   [github-variables.md](github-variables.md).
 
-The O3 workflow task will turn these documented names into deploy and schedule
-configuration. The O4 smoke test requires your allowlisted account and the
-staging resources, but never asks you to put their secrets in this repository.
+The Go replacement phase will update image build and command wiring while
+retaining these documented names. The O4 smoke test waits for Go parity, then
+requires your allowlisted account and the staging resources; it never asks you
+to put their secrets in this repository.
 
 ## References
 
