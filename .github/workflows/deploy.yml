@@ -1,0 +1,53 @@
+name: Deploy Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  REGION: ${{ vars.GCP_REGION }}
+  IMAGE_URI: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/daily-news/daily-news-backend:${{ github.sha }}
+  API_RUNTIME_SERVICE_ACCOUNT: daily-news-api@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+  JOB_RUNTIME_SERVICE_ACCOUNT: daily-news-ingestion@${{ vars.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+  CLOUD_RUN_JOB_NAME: ${{ vars.CLOUD_RUN_JOB_NAME }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Configure Artifact Registry authentication
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+      - name: Build and publish shared image
+        run: |
+          docker build --tag "${IMAGE_URI}" backend
+          docker push "${IMAGE_URI}"
+      - name: Render Cloud Run manifests
+        run: |
+          mkdir --parents rendered-cloud-run
+          envsubst < infra/cloud-run/service.yaml > rendered-cloud-run/service.yaml
+          envsubst < infra/cloud-run/job.yaml > rendered-cloud-run/job.yaml
+      - name: Deploy API service
+        run: |
+          gcloud run services replace rendered-cloud-run/service.yaml \
+            --project "${PROJECT_ID}" \
+            --region "${REGION}"
+      - name: Deploy ingestion Job
+        run: |
+          gcloud run jobs replace rendered-cloud-run/job.yaml \
+            --project "${PROJECT_ID}" \
+            --region "${REGION}"

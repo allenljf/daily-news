@@ -510,12 +510,14 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 **Parallel:** no — 需要已知 image、WIF 與 Cloud Run resource 名稱。  
 **Files:** Create `.github/workflows/{ci.yml,deploy.yml,daily-ingestion.yml}`, `infra/cloud-run/{service.yaml,job.yaml}`.
 
-- [ ] **Red:** 以 `actionlint` 檢查 workflow；`daily-ingestion.yml` 必須包含 `cron: '0 0 * * *'`、`permissions: id-token: write` 與 Job execution command，初始檢查預期因檔案不存在而失敗。
-- [ ] **Green:** CI 執行 backend ruff/pytest、Flutter analyse/test、guide self-check；deploy workflow 透過 `google-github-actions/auth` 的 WIF 部署 service/job；daily workflow 僅觸發 Job，不帶 DB 或 LLM secret。
-- [ ] **Run Green:** `actionlint .github/workflows/*.yml` 與每個 manifest 的 schema/lint check；人工確認 GitHub Variables 與 O1 名稱一致。
-- [ ] **Commit:** `git add .github infra && git commit -m "ci: add Cloud Run deployment and daily job"`。
+- [x] **Red:** 以 `actionlint` 檢查 workflow；`daily-ingestion.yml` 必須包含 `cron: '0 0 * * *'`、`permissions: id-token: write` 與 Job execution command，初始檢查預期因檔案不存在而失敗。
+- [x] **Green:** CI 執行 backend ruff/pytest、Flutter analyse/test、guide self-check；deploy workflow 透過 `google-github-actions/auth` 的 WIF 部署 service/job；daily workflow 僅觸發 Job，不帶 DB 或 LLM secret。
+- [x] **Run Green:** `actionlint .github/workflows/*.yml` 與每個 manifest 的 schema/lint check；人工確認 GitHub Variables 與 O1 名稱一致。
+- [x] **Commit:** `git add .github infra && git commit -m "ci: add Cloud Run deployment and daily job"`。
 
 **完成紀錄：**
+
+- 2026-09-01：Red：以 Docker image 執行 actionlint：`docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest .github/workflows/daily-ingestion.yml` 在 workflow 尚不存在時以 exit 3 停止，顯示無法讀取檔案。Green：新增 CI、WIF deploy 與 UTC 00:00 daily-ingestion workflows，以及以 image／runtime service-account placeholders 為界的 Cloud Run Service／Job manifests。CI 執行 backend Ruff/pytest、Flutter analyze/test 與 guide self-check；deploy 使用 `google-github-actions/auth@v3` + `setup-gcloud@v3` 建置同一 backend image、render manifests 並部署 service/job；daily workflow 只執行既有 Cloud Run Job。Run Green：actionlint 對三個 workflow 通過；Python YAML structural check 確認 manifests 的 Cloud Run apiVersion/kind；比較 workflow 中 `vars.*` 與 O1 清冊，僅有 `CLOUD_RUN_JOB_NAME`、`GCP_PROJECT_ID`、`GCP_REGION`、`GCP_SERVICE_ACCOUNT`、`GCP_WORKLOAD_IDENTITY_PROVIDER`，且無 `secrets.*` 或 DB／LLM／adapter secret；`git diff --check` 通過。Implementation commit SHA 見 O3 report。
 
 ### O4: 執行受控 staging smoke test
 
