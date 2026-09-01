@@ -7,6 +7,8 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/news_list_controller.dart';
 
+Key newsListItemKey(String newsId) => ValueKey('news-item-$newsId');
+
 final class NewsListScreen extends ConsumerStatefulWidget {
   const NewsListScreen({required this.categoryId, super.key});
   final String categoryId;
@@ -104,6 +106,7 @@ final class _NewsListScreenState extends ConsumerState<NewsListScreen> {
                           Localizations.localeOf(context).toLanguageTag(),
                         ).add_Hm().format(item.insertedAt.toLocal());
                         return ListTile(
+                          key: newsListItemKey(item.id),
                           title: Text(item.title),
                           subtitle: Text('$time · ${item.sourceTagLabel}'),
                           trailing: item.isPermanent

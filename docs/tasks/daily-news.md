@@ -455,13 +455,15 @@ F1 先產生 App，F2/F3 共享 core contracts 可順序執行；F4、F5 在 int
 **Parallel:** no — 需要完整 API workflow。  
 **Files:** Create `apps/mobile/integration_test/daily_news_flow_test.dart`, `apps/mobile/test_support/fake_api_server.dart`.
 
-- [ ] **Red:** 寫 integration scenario：登入 → 建立 Category → 手動更新確認 → 顯示 run queued → 顯示新 Article → 設永久 → 刪除。
-- [ ] **Run Red:** `cd apps/mobile && flutter test integration_test/daily_news_flow_test.dart`，預期在缺 UI 元件或 fake server routes 時失敗。
-- [ ] **Green:** 完成 fake API transport 與所有 UI accessibility keys；測試不連 production Firebase、GCP 或 LLM。
-- [ ] **Run Green:** `cd apps/mobile && flutter test integration_test/daily_news_flow_test.dart`。
-- [ ] **Commit:** `git add apps/mobile && git commit -m "test: add daily news integration flow"`。
+- [x] **Red:** 寫 integration scenario：登入 → 建立 Category → 手動更新確認 → 顯示 run queued → 顯示新 Article → 設永久 → 刪除。
+- [x] **Run Red:** `cd apps/mobile && flutter test integration_test/daily_news_flow_test.dart`，預期在缺 UI 元件或 fake server routes 時失敗。
+- [x] **Green:** 完成 fake API transport 與所有 UI accessibility keys；測試不連 production Firebase、GCP 或 LLM。
+- [x] **Run Green:** `cd apps/mobile && flutter test integration_test/daily_news_flow_test.dart`。
+- [x] **Commit:** `git add apps/mobile && git commit -m "test: add daily news integration flow"`。
 
 **完成紀錄：**
+
+- 2026-09-01：建立單一 integration journey，由 fake Google auth 進入登入後首頁，透過 production Dio／Service／Repository／Riverpod wiring 建立 Category、確認 manual Ingestion Run 並顯示 `queued`、讀取新 Article、設為永久後全域 soft delete。fake API transport 強制 `Bearer fake-firebase-token` 並只在記憶體提供需要的 routes，未連 production Firebase、GCP、LLM 或外部網路。Red mutation：暫時移除 Article row accessibility key 後，`cd apps/mobile && flutter test integration_test/daily_news_flow_test.dart` 以 `Found 0 widgets with key ['news-item-article-1']` 如期失敗；還原 key 後 Green 為 `1 passed`。`cd apps/mobile && flutter analyze` 為 `No issues found!`。Commit message：`test: add daily news integration flow`。
 
 ---
 

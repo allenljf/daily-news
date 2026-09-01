@@ -118,6 +118,7 @@ final class HomeContent extends StatelessWidget {
                 ],
                 const SizedBox(height: AppSpacing.medium),
                 FilledButton.icon(
+                  key: manualUpdateButtonKey,
                   onPressed: state.canRequestUpdate
                       ? onImmediateUpdatePressed
                       : null,

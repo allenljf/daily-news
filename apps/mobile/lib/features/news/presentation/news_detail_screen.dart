@@ -7,6 +7,9 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/news_detail_controller.dart';
 
+const makePermanentButtonKey = Key('make-permanent-button');
+const deleteNewsButtonKey = Key('delete-news-button');
+
 final class NewsDetailScreen extends ConsumerWidget {
   const NewsDetailScreen({
     required this.categoryId,
@@ -49,6 +52,7 @@ final class NewsDetailScreen extends ConsumerWidget {
               SelectableText(item.canonicalUrl.toString()),
               const SizedBox(height: AppSpacing.large),
               FilledButton(
+                key: makePermanentButtonKey,
                 onPressed: item.isPermanent
                     ? null
                     : () => unawaited(
@@ -64,6 +68,7 @@ final class NewsDetailScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.small),
               OutlinedButton(
+                key: deleteNewsButtonKey,
                 onPressed: () => unawaited(
                   ref
                       .read(newsDetailControllerProvider(args).notifier)

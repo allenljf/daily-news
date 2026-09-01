@@ -7,6 +7,9 @@ import '../../../l10n/app_localizations.dart';
 import '../application/manual_run_providers.dart';
 import '../data/manual_run.dart';
 
+const manualUpdateButtonKey = Key('manual-update-button');
+const confirmManualUpdateButtonKey = Key('confirm-manual-update-button');
+
 final class ManualRefreshControl extends ConsumerWidget {
   const ManualRefreshControl({super.key});
 
@@ -28,6 +31,7 @@ final class ManualRefreshControl extends ConsumerWidget {
           ),
         if (run?.failed == true) Text(localizations.manualRunFailed),
         FilledButton.icon(
+          key: manualUpdateButtonKey,
           onPressed: value.isLoading || run?.isActive == true
               ? null
               : () => showManualRefreshDialog(context, ref),
@@ -52,6 +56,7 @@ Future<void> showManualRefreshDialog(BuildContext context, WidgetRef ref) {
           child: Text(localizations.cancel),
         ),
         FilledButton(
+          key: confirmManualUpdateButtonKey,
           onPressed: () {
             Navigator.pop(context);
             unawaited(ref.read(manualRunControllerProvider.notifier).request());

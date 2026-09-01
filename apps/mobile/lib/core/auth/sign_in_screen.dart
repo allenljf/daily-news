@@ -5,6 +5,8 @@ import '../../l10n/app_localizations.dart';
 import '../theme/app_spacing.dart';
 import 'auth_controller.dart';
 
+const signInButtonKey = Key('sign-in-button');
+
 final class SignInScreen extends ConsumerWidget {
   const SignInScreen({super.key});
 
@@ -25,6 +27,7 @@ final class SignInScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.large),
               FilledButton.icon(
+                key: signInButtonKey,
                 onPressed: signInState.isLoading
                     ? null
                     : () => ref
