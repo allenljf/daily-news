@@ -522,9 +522,9 @@ error mapping、transaction boundary、`gofmt`、`go vet ./...` 與 `go test ./.
 **Parallel:** no — 需要共用 SQL pool 與 authenticated HTTP boundary。
 **Files:** Create Go SQL repositories, `backend/migrations/`, schema parity and Category `httptest`/PostgreSQL tests.
 
-- [ ] **Red:** 用 disposable PostgreSQL 驗證既有 tables/indexes/constraints，及 Category/Source Setting CRUD success、422、404、401 contract cases。
-- [ ] **Green:** 使用 pgx `database/sql` adapter、explicit SQL、golang-migrate representation、Category transaction boundaries 和 `/v1/categories` handlers；schema 結果不得變更。
-- [ ] **Verify:** run schema diff/index assertions, `cd backend && go vet ./... && go test ./...`, and focused Flutter contract review.
+- [x] **Red:** 用 disposable PostgreSQL 驗證既有 tables/indexes/constraints，及 Category/Source Setting CRUD success、422、404、401 contract cases。
+- [x] **Green:** 使用 pgx `database/sql` adapter、explicit SQL、golang-migrate representation、Category transaction boundaries 和 `/v1/categories` handlers；schema 結果不得變更。
+- [x] **Verify:** run schema diff/index assertions, `cd backend && go vet ./... && go test ./...`, and focused Flutter contract review.
 - [ ] **Commit:** verified changes only, `git commit -m "feat: add Go category API and schema parity"`。
 
 ### R4: 移植 News read model、cursor、permanence 與 soft delete
@@ -591,6 +591,8 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 **Done when:** 使用者可在 GCP／GitHub UI 完成所有外部設定，而無需猜測 token 名稱或權限。
 
 **完成紀錄：**
+
+- 2026-09-01：Red：新增 Category handler tests 後，`cd backend && go test ./internal/category` 因 `NewHandler` 尚未定義而 build failed。Green：加入 pgx `database/sql` adapter、golang-migrate SQL representation（initial schema + Category Article soft delete）、explicit Category/Source Setting SQL Store 與 transaction-bounded create/update/delete；`/v1/categories` handler 保留 Bearer middleware、422 validation、404 soft-deleted Category 和 204 delete semantics。Go migration integration test 以 disposable `postgres:16-alpine` 建立 `articles,categories,category_articles,ingestion_attempts,ingestion_runs,schema_migrations,source_settings` 和五個 required indexes；Category lifecycle integration test 驗證來源排序／host normalization、replacement soft delete、Category Article soft delete 與 Article 保留。Verification：`cd backend && go mod tidy && gofmt -w internal/category internal/platform && go vet ./... && go test ./... && git diff --check` 通過；focused Flutter scan 確認 Category DTO/remote service 持續使用 `search_keywords`、`special_requirements`、`source_settings`、`website_input`。待 implementation commit 後補 SHA。
 
 - 2026-09-01：Red：新增 HTTP handler tests 後，`cd backend && go test ./internal/identity ./internal/httpapi ./contract` 因 identity package、verifier seam、Bearer middleware、strict decoder 與 Problem encoder 尚不存在而 build failed；OpenAPI harness 已通過並確認 checked-in artifact 的每個 `/v1` operation 都宣告 `HTTPBearer`。Green：加入 Firebase Admin Go SDK（ADC `NewApp`）、`TokenVerifier` fake seam、exact email allowlist、strict single-body JSON decoder，與保留 Flutter/既有 FastAPI JSON shape 的 `{"detail":{"title","status"}}` `application/problem+json` encoder。Firebase SDK 的 `auth.IsIDTokenInvalid` 只將 invalid/expired/revoked token 映射為 401；operational failure 保留原因並映射為不暴露內部細節的 503。Verification：`cd backend && go mod tidy && gofmt -w internal/identity/firebase.go internal/identity/firebase_test.go internal/httpapi/auth.go internal/httpapi/auth_test.go internal/httpapi/problem.go internal/httpapi/request.go contract/openapi_test.go && go vet ./... && go test ./... && git diff --check` 通過；所有 test 使用 fake token client，未連 Firebase、GCP 或真實帳號。Implementation commit `9505812`（`feat: add Go API identity and errors`）。
 

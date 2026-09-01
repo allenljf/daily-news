@@ -1,0 +1,9 @@
+DROP TABLE ingestion_attempts;
+DROP TABLE category_articles;
+DROP TABLE source_settings;
+DROP INDEX ix_ingestion_runs_idempotency_key;
+DROP TABLE ingestion_runs;
+DROP INDEX ix_articles_normalized_title_hash;
+DROP INDEX ix_articles_canonical_url_hash;
+DROP TABLE articles;
+DROP TABLE categories;
