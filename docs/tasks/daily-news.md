@@ -494,13 +494,15 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 **Parallel:** no — 同一 image 必須同時服務 HTTP 與 Job entrypoint。  
 **Files:** Create `backend/{Dockerfile,.dockerignore}`, `backend/scripts/{serve.sh,run-job.sh}`, `backend/tests/test_container_contract.py`.
 
-- [ ] **Red:** container contract test 驗證 `serve.sh` 啟動 uvicorn，`run-job.sh` 呼叫 `python -m app.jobs.daily_news`，且兩者使用同一 image／環境設定名稱。
-- [ ] **Run Red:** `cd backend && uv run pytest tests/test_container_contract.py -q`，預期失敗。
-- [ ] **Green:** 寫 multi-stage 或精簡 Python image、non-root runtime、health endpoint、Job entry script；映像不 baked-in secret。
-- [ ] **Run Green:** `docker build -t daily-news-backend:test backend && docker run --rm daily-news-backend:test python -m app.jobs.daily_news --help`。
-- [ ] **Commit:** `git add backend && git commit -m "build: containerize API and ingestion job"`。
+- [x] **Red:** container contract test 驗證 `serve.sh` 啟動 uvicorn，`run-job.sh` 呼叫 `python -m app.jobs.daily_news`，且兩者使用同一 image／環境設定名稱。
+- [x] **Run Red:** `cd backend && uv run pytest tests/test_container_contract.py -q`，預期失敗。
+- [x] **Green:** 寫 multi-stage 或精簡 Python image、non-root runtime、health endpoint、Job entry script；映像不 baked-in secret。
+- [x] **Run Green:** `docker build -t daily-news-backend:test backend && docker run --rm daily-news-backend:test python -m app.jobs.daily_news --help`。
+- [x] **Commit:** `git add backend && git commit -m "build: containerize API and ingestion job"`。
 
 **完成紀錄：**
+
+- 2026-09-01：Red：新增可執行 shell entrypoint contract tests 後，`cd backend && uv run pytest tests/test_container_contract.py -q` 因 `backend/scripts/{serve.sh,run-job.sh}` 尚不存在而失敗（2 failed），確認兩種容器啟動邊界尚未實作。Green：新增同一 Python 3.12-slim image 的 Dockerfile、non-root `daily-news` runtime user、locked production dependency install、`.dockerignore`，與 API／Job entry scripts。API script 以 Cloud Run `PORT` 啟動 `uvicorn app.main:app`，Job script 以 `python -m app.jobs.daily_news` 並保留 CLI arguments；image 不複製 `.env`、虛擬環境、測試或秘密。Run Green：focused container contract 為 `2 passed`，`docker build -t daily-news-backend:test backend && docker run --rm daily-news-backend:test python -m app.jobs.daily_news --help` exit 0；`docker run --rm daily-news-backend:test id -u` 輸出 `999`。全量 `cd backend && uv run pytest -q` 為 `32 passed`（僅既有 Starlette/httpx deprecation warning），`cd backend && uv run ruff check .` 與 `git diff --check` 通過。Implementation commit SHA 見 O2 report。
 
 ### O3: 建立部署與每日排程 workflows
 
