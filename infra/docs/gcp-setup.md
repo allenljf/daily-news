@@ -5,6 +5,10 @@ and daily ingestion Job. Substitute values in the Google Cloud Console or
 your local terminal; do not put real project IDs, email addresses, tokens, or
 secret values in this repository.
 
+For a guided interactive version, run `infra/scripts/setup-neon-gcp.sh` from
+the repository root. It opens the relevant consoles, writes local values to
+an ignored `.env`, and only changes GCP or GitHub after explicit prompts.
+
 ## 1. Create the project resources
 
 1. Choose a GCP project and Cloud Run region. Enable Cloud Run, Artifact
