@@ -21,44 +21,46 @@ final class HomeScreen extends ConsumerWidget {
     final manualRun = ref.watch(manualRunControllerProvider);
 
     return Scaffold(
-      body: state.when(
-        loading: () => Center(
-          child: Semantics(
-            label: localizations.loading,
-            child: const CircularProgressIndicator(),
+      body: SafeArea(
+        child: state.when(
+          loading: () => Center(
+            child: Semantics(
+              label: localizations.loading,
+              child: const CircularProgressIndicator(),
+            ),
           ),
-        ),
-        error: (_, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(localizations.homeLoadFailed),
-              const SizedBox(height: AppSpacing.medium),
-              FilledButton(
-                onPressed: () =>
-                    ref.read(homeControllerProvider.notifier).reload(),
-                child: Text(localizations.retry),
-              ),
-            ],
+          error: (_, _) => Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(localizations.homeLoadFailed),
+                const SizedBox(height: AppSpacing.medium),
+                FilledButton(
+                  onPressed: () =>
+                      ref.read(homeControllerProvider.notifier).reload(),
+                  child: Text(localizations.retry),
+                ),
+              ],
+            ),
           ),
+          data: (homeState) {
+            final manualStatus = manualRun.asData?.value.status;
+            final effectiveState = HomeUiState(
+              lastSuccessfulAt: homeState.lastSuccessfulAt,
+              runStatus: manualStatus == ManualRunStatus.queued
+                  ? HomeRunUiStatus.queued
+                  : manualStatus == ManualRunStatus.running
+                  ? HomeRunUiStatus.running
+                  : homeState.runStatus,
+            );
+            return HomeContent(
+              state: effectiveState,
+              onImmediateUpdatePressed: () =>
+                  showManualRefreshDialog(context, ref),
+              categoryContent: const CategoryHomeSection(),
+            );
+          },
         ),
-        data: (homeState) {
-          final manualStatus = manualRun.asData?.value.status;
-          final effectiveState = HomeUiState(
-            lastSuccessfulAt: homeState.lastSuccessfulAt,
-            runStatus: manualStatus == ManualRunStatus.queued
-                ? HomeRunUiStatus.queued
-                : manualStatus == ManualRunStatus.running
-                ? HomeRunUiStatus.running
-                : homeState.runStatus,
-          );
-          return HomeContent(
-            state: effectiveState,
-            onImmediateUpdatePressed: () =>
-                showManualRefreshDialog(context, ref),
-            categoryContent: const CategoryHomeSection(),
-          );
-        },
       ),
     );
   }

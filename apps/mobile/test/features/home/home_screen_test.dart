@@ -61,6 +61,20 @@ void main() {
     );
   });
 
+  testWidgets('home content is kept below the system safe area', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      const HomeRefreshStatus(
+        lastSuccessfulAt: null,
+        activeRunStatus: ActiveRunStatus.none,
+      ),
+    );
+
+    expect(find.byType(SafeArea), findsOneWidget);
+  });
+
   for (final fixture in const [
     (status: ActiveRunStatus.queued, label: '排隊中'),
     (status: ActiveRunStatus.running, label: '更新中'),
