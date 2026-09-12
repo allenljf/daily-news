@@ -216,6 +216,7 @@ func newsIntegrationDatabase(t *testing.T) *sql.DB {
 	port := strings.TrimSpace(newsDocker(t, "port", name, "5432/tcp"))
 	port = port[strings.LastIndex(port, ":")+1:]
 	url := "postgres://daily_news:daily_news@127.0.0.1:" + port + "/daily_news?sslmode=disable"
+	waitForNewsPostgreSQLTCP(t, url)
 	path, err := filepath.Abs("../../migrations")
 	if err != nil {
 		t.Fatal(err)
@@ -229,6 +230,23 @@ func newsIntegrationDatabase(t *testing.T) *sql.DB {
 	}
 	return database
 }
+
+func waitForNewsPostgreSQLTCP(t *testing.T, databaseURL string) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		connectionContext, cancel := context.WithTimeout(context.Background(), time.Second)
+		database, err := platform.OpenDB(connectionContext, databaseURL)
+		cancel()
+		if err == nil {
+			_ = database.Close()
+			return
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Fatalf("PostgreSQL did not accept TCP connections within 30 seconds")
+}
+
 func newsDocker(t *testing.T, arguments ...string) string {
 	t.Helper()
 	output, err := exec.Command("docker", arguments...).CombinedOutput()

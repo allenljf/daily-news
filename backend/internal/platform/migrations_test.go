@@ -25,6 +25,7 @@ func TestApplyMigrationsMatchesDailyNewsSchema(t *testing.T) {
 	port := strings.TrimSpace(runDocker(t, "port", name, "5432/tcp"))
 	port = port[strings.LastIndex(port, ":")+1:]
 	databaseURL := "postgres://daily_news:daily_news@127.0.0.1:" + port + "/daily_news?sslmode=disable"
+	waitForPostgreSQLTCP(t, databaseURL)
 	migrationsPath, err := filepath.Abs("../../migrations")
 	if err != nil {
 		t.Fatal(err)
@@ -51,6 +52,22 @@ func TestApplyMigrationsMatchesDailyNewsSchema(t *testing.T) {
 	if want := "ix_articles_canonical_url_hash,ix_articles_normalized_title_hash,ix_category_articles_category_article,ix_category_articles_feed_cursor,ix_ingestion_runs_idempotency_key"; indexes != want {
 		t.Fatalf("indexes = %q, want %q", indexes, want)
 	}
+}
+
+func waitForPostgreSQLTCP(t *testing.T, databaseURL string) {
+	t.Helper()
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		context, cancel := context.WithTimeout(context.Background(), time.Second)
+		database, err := OpenDB(context, databaseURL)
+		cancel()
+		if err == nil {
+			_ = database.Close()
+			return
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Fatalf("PostgreSQL did not accept TCP connections within 30 seconds")
 }
 
 func runDocker(t *testing.T, arguments ...string) string {
