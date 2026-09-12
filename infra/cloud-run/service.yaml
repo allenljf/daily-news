@@ -4,6 +4,9 @@ metadata:
   name: daily-news-api
   annotations:
     run.googleapis.com/ingress: all
+    # The API applies Firebase Bearer-token authorization itself.  Cloud Run
+    # must therefore admit requests before that application-level check.
+    run.googleapis.com/invoker-iam-disabled: 'true'
 spec:
   template:
     spec:

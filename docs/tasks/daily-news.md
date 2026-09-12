@@ -654,6 +654,8 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 
 **完成紀錄：**
 
+- 2026-09-12：Deployment correction（O4 尚未完成）：在已確認 Service Ready、100% traffic、`ingress: all` 與 `allUsers` Invoker binding 後，公開 `/healthz` 仍由 Google edge 回傳 HTML 404，未到達 Go handler。Red：`cd backend && uv run pytest tests/test_container_contract.py -q` 因 manifest 未宣告 public invocation 而如預期失敗（1 failed, 3 passed）。Green：Service manifest 明確加入 `run.googleapis.com/invoker-iam-disabled: 'true'`，使 Cloud Run admission 與 API 內 Firebase Bearer-token allowlist 分工明確，並由 contract test 固定此部署不變量。Verify：`cd backend && uv run pytest tests/test_container_contract.py -q && go vet ./... && go test ./...` 通過（container contract 4 passed；所有 Go package passing）；`actionlint .github/workflows/deploy.yml`、manifest assertion 與 `git diff --check` 均通過。待使用者 push 並完成 GitHub Actions 部署後，以公開 `/healthz` 和 allowlisted Firebase smoke test 驗證，才可完成 O4。
+
 ---
 
 ## Plan Self-Review

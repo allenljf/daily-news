@@ -26,6 +26,12 @@ def test_cloud_run_job_executes_go_job_binary() -> None:
     assert "scripts/run-job.sh" not in manifest
 
 
+def test_cloud_run_service_declares_public_invocation_for_flutter_auth() -> None:
+    manifest = (REPOSITORY_ROOT / "infra/cloud-run/service.yaml").read_text()
+
+    assert "run.googleapis.com/invoker-iam-disabled: 'true'" in manifest
+
+
 def test_ci_runs_go_verification_instead_of_python_backend_checks() -> None:
     workflow = (REPOSITORY_ROOT / ".github/workflows/ci.yml").read_text()
 
