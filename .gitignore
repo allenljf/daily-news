@@ -2,3 +2,6 @@
 __pycache__/
 *.py[cod]
 .venv/
+android-dev-guide/
+docs/
+.vscode/
