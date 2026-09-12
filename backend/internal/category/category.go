@@ -54,7 +54,7 @@ func (store *Store) List(ctx context.Context) ([]Response, error) {
 		return nil, err
 	}
 	defer rows.Close()
-	var results []Response
+	results := make([]Response, 0)
 	for rows.Next() {
 		var value Response
 		if err := rows.Scan(&value.ID, &value.Name, &value.SearchKeywords, &value.SpecialRequirements); err != nil {

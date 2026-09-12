@@ -3,12 +3,15 @@ package category
 import (
 	"context"
 	"database/sql"
+	"net/http"
+	"net/http/httptest"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/allenljf/daily-news/backend/internal/identity"
 	"github.com/allenljf/daily-news/backend/internal/platform"
 	"github.com/google/uuid"
 )
@@ -50,6 +53,24 @@ func TestStorePreservesCategoryLifecycleSemantics(t *testing.T) {
 	}
 	if _, err := store.Update(context.Background(), created.ID, Request{Name: "no", SourceSettings: []SourceSettingInput{}}); err != ErrNotFound {
 		t.Fatalf("Update() error = %v, want ErrNotFound", err)
+	}
+}
+
+func TestHandlerListsNoCategoriesAsJSONArray(t *testing.T) {
+	database := integrationDatabase(t)
+	defer database.Close()
+	mux := NewHandler(NewStore(database), fakeVerifier{identity: identity.Identity{UID: "user", Email: "allowed@example.com"}}, "allowed@example.com")
+	request := httptest.NewRequest(http.MethodGet, "/v1/categories", nil)
+	request.Header.Set("Authorization", "Bearer token")
+	response := httptest.NewRecorder()
+
+	mux.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	if body := response.Body.String(); body != "[]\n" {
+		t.Fatalf("empty category list body = %q, want %q", body, "[]\n")
 	}
 }
 
