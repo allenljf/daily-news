@@ -10,7 +10,7 @@ import (
 // NewMux creates the API route multiplexer.
 func NewMux() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", healthz)
+	mux.HandleFunc("GET /healthz", Healthz)
 	return mux
 }
 
@@ -29,7 +29,8 @@ func NewServerWithHandler(address string, handler http.Handler) *http.Server {
 	}
 }
 
-func healthz(writer http.ResponseWriter, _ *http.Request) {
+// Healthz returns the unauthenticated Cloud Run health contract.
+func Healthz(writer http.ResponseWriter, _ *http.Request) {
 	writer.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(writer).Encode(map[string]string{"status": "ok"})
 }

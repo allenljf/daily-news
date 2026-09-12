@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/allenljf/daily-news/backend/internal/category"
+	"github.com/allenljf/daily-news/backend/internal/httpapi"
 	"github.com/allenljf/daily-news/backend/internal/identity"
 	"github.com/allenljf/daily-news/backend/internal/ingestion"
 	"github.com/allenljf/daily-news/backend/internal/news"
@@ -19,6 +20,8 @@ func NewHandler(database *sql.DB, verifier identity.TokenVerifier, allowedEmail 
 	runs := ingestion.NewHandler(ingestion.NewRunStore(database), launcher, verifier, allowedEmail)
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		switch {
+		case request.Method == http.MethodGet && request.URL.Path == "/healthz":
+			httpapi.Healthz(writer, request)
 		case request.URL.Path == "/v1/categories" || (strings.HasPrefix(request.URL.Path, "/v1/categories/") && strings.Contains(request.URL.Path, "/news")):
 			if strings.Contains(request.URL.Path, "/news") {
 				articles.ServeHTTP(writer, request)
