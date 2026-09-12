@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'app.dart';
 import 'core/http/http_providers.dart';
@@ -9,7 +10,11 @@ const _configuredApiBaseUrl = String.fromEnvironment(
   defaultValue: 'https://api.daily-news.invalid/v1/',
 );
 
-void main() => runApp(buildConfiguredApp(apiBaseUrl: _configuredApiBaseUrl));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(buildConfiguredApp(apiBaseUrl: _configuredApiBaseUrl));
+}
 
 Widget buildConfiguredApp({required String apiBaseUrl}) {
   return ProviderScope(
