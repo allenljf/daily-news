@@ -38,6 +38,29 @@ void main() {
     expect(find.text('2026/8/30 08:01'), findsOneWidget);
   });
 
+  testWidgets('home keeps update details and action in one title-free row', (
+    tester,
+  ) async {
+    await _pumpHome(
+      tester,
+      const HomeRefreshStatus(
+        lastSuccessfulAt: null,
+        activeRunStatus: ActiveRunStatus.none,
+      ),
+    );
+
+    expect(find.text('每日新聞'), findsNothing);
+    final updateRow = find.ancestor(
+      of: find.text('最近更新時間'),
+      matching: find.byType(Row),
+    );
+    expect(updateRow, findsOneWidget);
+    expect(
+      find.descendant(of: updateRow, matching: find.text('立即更新')),
+      findsOneWidget,
+    );
+  });
+
   for (final fixture in const [
     (status: ActiveRunStatus.queued, label: '排隊中'),
     (status: ActiveRunStatus.running, label: '更新中'),

@@ -21,7 +21,6 @@ final class HomeScreen extends ConsumerWidget {
     final manualRun = ref.watch(manualRunControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(localizations.appTitle)),
       body: state.when(
         loading: () => Center(
           child: Semantics(
@@ -89,44 +88,47 @@ final class HomeContent extends StatelessWidget {
 
     return Column(
       children: [
-        Align(
-          alignment: Alignment.topRight,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.large,
-              AppSpacing.medium,
-              AppSpacing.large,
-              0,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  localizations.lastUpdated,
-                  style: Theme.of(context).textTheme.labelLarge,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.large,
+            AppSpacing.medium,
+            AppSpacing.large,
+            0,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      localizations.lastUpdated,
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: AppSpacing.small),
+                    Text(formattedUpdatedAt),
+                    if (state.runStatus != HomeRunUiStatus.idle) ...[
+                      const SizedBox(height: AppSpacing.small),
+                      Text(switch (state.runStatus) {
+                        HomeRunUiStatus.queued => localizations.runQueued,
+                        HomeRunUiStatus.running => localizations.runRunning,
+                        HomeRunUiStatus.idle => '',
+                      }),
+                    ],
+                  ],
                 ),
-                const SizedBox(height: AppSpacing.small),
-                Text(formattedUpdatedAt),
-                if (state.runStatus != HomeRunUiStatus.idle) ...[
-                  const SizedBox(height: AppSpacing.small),
-                  Text(switch (state.runStatus) {
-                    HomeRunUiStatus.queued => localizations.runQueued,
-                    HomeRunUiStatus.running => localizations.runRunning,
-                    HomeRunUiStatus.idle => '',
-                  }),
-                ],
-                const SizedBox(height: AppSpacing.medium),
-                FilledButton.icon(
-                  key: manualUpdateButtonKey,
-                  onPressed: state.canRequestUpdate
-                      ? onImmediateUpdatePressed
-                      : null,
-                  icon: const Icon(Icons.refresh),
-                  label: Text(localizations.updateNow),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: AppSpacing.medium),
+              FilledButton.icon(
+                key: manualUpdateButtonKey,
+                onPressed: state.canRequestUpdate
+                    ? onImmediateUpdatePressed
+                    : null,
+                icon: const Icon(Icons.refresh),
+                label: Text(localizations.updateNow),
+              ),
+            ],
           ),
         ),
         Expanded(child: categoryContent),
