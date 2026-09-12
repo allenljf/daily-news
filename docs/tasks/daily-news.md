@@ -571,6 +571,21 @@ error mapping、transaction boundary、`gofmt`、`go vet ./...` 與 `go test ./.
 - [x] **Verify:** build/run container locally, `actionlint .github/workflows/*.yml`, manifest structural checks, `cd backend && go vet ./... && go test ./...`, schema parity, Flutter integration test, and `git diff --check`.
 - [x] **Commit:** verified changes only, `git commit -m "build: cut over Daily News backend to Go"`。
 
+### R8: Correct production ingestion work planning and citation persistence
+
+**Depends on:** R7
+**Parallel:** no — restores the Go Job path required by O4.
+**Files:** Modify `backend/{cmd/daily-news-job,Dockerfile,migrations}`, `backend/internal/ingestion/`; create focused Go tests and migration.
+
+- [x] **Red:** PostgreSQL tests prove active Category/Source Setting rows produce planned work, a public RSS/Atom entry persists a non-empty citation, and an empty work slice is never passed by the Job composition root.
+- [x] **Green:** Add a bounded, fakeable public RSS/Atom adapter; load active work; preserve canonical URL dedupe and store `citation_url`; apply checked-in migrations from the Job image before work starts.
+- [x] **Verify:** `cd backend && gofmt -w ... && go vet ./... && go test ./...`; build the container and verify `/app/migrations/000003_article_citation.up.sql` exists.
+- [x] **Commit:** verified changes only, `git commit -m "fix: restore Go ingestion staging path"`。
+
+**完成紀錄：**
+
+- 2026-09-12：Red：新增 RSS citation、Atom entry 與 active HTTP(S) Source Setting planner tests；Atom test 初始回空 candidates，planner test 初始錯誤納入 `ftp://` Source Setting，確認新的行為尚未實作。Green：新增 `000003_article_citation` migration、`WorkPlanner`、可注入 HTTP client 的 RSS/Atom adapter、UTM canonicalization，以及 Job migration/work planning wiring；Job composition regression 禁止 `Run(ctx, id, nil)`。Verify：`cd backend && gofmt -w cmd/daily-news-job/main.go cmd/daily-news-job/main_test.go internal/ingestion/*.go && go test ./cmd/daily-news-job ./internal/ingestion -count=1 && go vet ./... && go test ./...` 通過；`cd backend && uv run pytest tests/test_container_contract.py -q` 為 `4 passed`；`docker build -t daily-news-backend:r8 backend` 成功，runtime image 確認存在 `/app/migrations/000003_article_citation.up.sql` 與可執行 Job binary；`git diff --check` 通過。Commit 見下。
+
 ---
 
 ## Phase O — GCP、GitHub Actions 與上線驗收
@@ -641,11 +656,11 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 
 ### O4: 執行受控 staging smoke test（等待 Go parity）
 
-**Depends on:** O3, F6, R7
+**Depends on:** O3, F6, R7, R8
 **Parallel:** no — 真實外部資源驗收。  
 **Files:** Create `docs/operations/staging-smoke-test.md`; modify `docs/tasks/daily-news.md` 完成紀錄。
 
-- [ ] **Red:** 在 smoke test 文件先列出失敗判準：WIF 驗證失敗、Firebase allowlist 外帳號可讀資料、Run 沒有結束狀態、Article 沒有 citation、手動 Run 平行重複執行。
+- [x] **Red:** 在 smoke test 文件先列出失敗判準：WIF 驗證失敗、Firebase allowlist 外帳號可讀資料、Run 沒有結束狀態、Article 沒有 citation、手動 Run 平行重複執行。
 - [ ] **Green:** 由使用者設定 O1 所列 resource 與秘密後，部署 staging；以 allowlisted account 驗證登入、Category、manual Run、latest status、Article list、永久、刪除；以第二次並行 POST 驗證 active Run 合併。
 - [ ] **Verify:** 檢查 Cloud Run／workflow log、`ingestion_runs`／`ingestion_attempts` 統計與 mobile integration results；記錄 pass/fail 和 run id，但不記錄 token／URL query secret。
 - [ ] **Commit:** `git add docs/operations docs/tasks/daily-news.md && git commit -m "docs: record staging smoke test"`。
@@ -653,6 +668,8 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 **Done when:** staging 以 Go image 與真正的 WIF、Cloud Run、Cloud SQL、Firebase 與至少一個公開來源完成端到端工作，且全部失敗判準均未發生。
 
 **完成紀錄：**
+
+- 2026-09-12：O4 Red/preflight 完成，Green 尚未開始。新增 `docs/operations/staging-smoke-test.md`，明列 WIF、公開 health、Firebase 401/403 allowlist、單一 active Run、terminal status、Attempt/citation、CRUD 與 mobile contract 的失敗判準、證據遮罩規則和執行順序。`git fetch origin main && git rev-list --left-right --count origin/main...main` 確認 `5f464ca` 已推送且為 `0 0`；GitHub Actions CI `34669133586` 與 deploy `34669133578` 均成功。Cloud Run control plane 顯示 revision `daily-news-api-00004-fqd` Ready、100% traffic、ingress all、`invokerIamDisabled: true`、default URI enabled；但兩個 service URL、八個 IPv4 edge、Google identity token 與 `gcloud run services proxy` 對 `/healthz` 均回 Google HTML 404，且 `run.googleapis.com/requests` 與 VPC Service Controls denial log 無對應項目。`gcloud run services update --default-url` 及一次 `--no-default-url`/`--default-url` 重建 URL 狀態後，observed generation 由 4 到 7，404 仍可重現。另以 `rg` 與 composition-root inspection 確認部署的 Go Job 呼叫 `Orchestrator.Run(ctx, id, nil)`，沒有 production Source Setting loader/concrete adapter，`CandidateArticle` 與 PostgreSQL schema 也沒有 citation 欄位；即使 ingress 恢復亦只能空跑，無法滿足 O4 公開來源/citation Done condition。故停止在任何 authenticated/data-mutating smoke step 之前，不勾選 Green/Verify/Commit。
 
 - 2026-09-12：Deployment correction（O4 尚未完成）：在已確認 Service Ready、100% traffic、`ingress: all` 與 `allUsers` Invoker binding 後，公開 `/healthz` 仍由 Google edge 回傳 HTML 404，未到達 Go handler。Red：`cd backend && uv run pytest tests/test_container_contract.py -q` 因 manifest 未宣告 public invocation 而如預期失敗（1 failed, 3 passed）。Green：Service manifest 明確加入 `run.googleapis.com/invoker-iam-disabled: 'true'`，使 Cloud Run admission 與 API 內 Firebase Bearer-token allowlist 分工明確，並由 contract test 固定此部署不變量。Verify：`cd backend && uv run pytest tests/test_container_contract.py -q && go vet ./... && go test ./...` 通過（container contract 4 passed；所有 Go package passing）；`actionlint .github/workflows/deploy.yml`、manifest assertion 與 `git diff --check` 均通過。待使用者 push 並完成 GitHub Actions 部署後，以公開 `/healthz` 和 allowlisted Firebase smoke test 驗證，才可完成 O4。
 

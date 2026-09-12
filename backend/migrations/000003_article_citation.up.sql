@@ -1,0 +1,1 @@
+ALTER TABLE articles ADD COLUMN citation_url TEXT NOT NULL DEFAULT '';

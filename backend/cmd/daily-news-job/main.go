@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -41,6 +42,10 @@ func run(ctx context.Context, runID string, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "DATABASE_URL is required")
 		return exitFailure
 	}
+	if err := platform.ApplyMigrations("file:///app/migrations", databaseURL); err != nil {
+		fmt.Fprintln(stderr, "apply migrations:", err)
+		return exitFailure
+	}
 	database, err := platform.OpenDB(ctx, databaseURL)
 	if err != nil {
 		fmt.Fprintln(stderr, "open database:", err)
@@ -52,7 +57,12 @@ func run(ctx context.Context, runID string, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "acquire ingestion run:", err)
 		return exitFailure
 	}
-	if _, err = ingestion.NewOrchestrator(database).Run(ctx, id, nil); err != nil {
+	work, err := ingestion.NewWorkPlanner(database, ingestion.NewRSSAdapter(http.DefaultClient)).Load(ctx)
+	if err != nil {
+		fmt.Fprintln(stderr, "plan ingestion work:", err)
+		return exitFailure
+	}
+	if _, err = ingestion.NewOrchestrator(database).Run(ctx, id, work); err != nil {
 		fmt.Fprintln(stderr, "run ingestion:", err)
 		return exitFailure
 	}

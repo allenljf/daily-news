@@ -19,7 +19,7 @@ func TestOrchestratorPersistsDedupeExpiryAttemptsAndTerminalRun(t *testing.T) {
 	seedSuppressedArticle(t, database)
 	firstCandidates := make([]CandidateArticle, 0, 12)
 	firstCandidates = append(firstCandidates,
-		CandidateArticle{Title: "Original", CanonicalURL: "https://example.test/original"},
+		CandidateArticle{Title: "Original", CanonicalURL: "https://example.test/original", CitationURL: "https://source.example/original"},
 		CandidateArticle{Title: "Different title", CanonicalURL: "https://example.test/original"},
 		CandidateArticle{Title: "Original", CanonicalURL: "https://elsewhere.test/original"},
 	)
@@ -61,6 +61,13 @@ func TestOrchestratorPersistsDedupeExpiryAttemptsAndTerminalRun(t *testing.T) {
 	}
 	if linkedCategories != 2 {
 		t.Fatalf("shared Article links = %d", linkedCategories)
+	}
+	var citationURL string
+	if err := database.QueryRow(`SELECT citation_url FROM articles WHERE canonical_url='https://example.test/original'`).Scan(&citationURL); err != nil {
+		t.Fatal(err)
+	}
+	if citationURL != "https://source.example/original" {
+		t.Fatalf("citation_url = %q", citationURL)
 	}
 	var suppressedLinks int
 	if err := database.QueryRow(`SELECT count(*) FROM category_articles ca JOIN articles a ON a.id=ca.article_id WHERE a.canonical_url='https://example.test/suppressed'`).Scan(&suppressedLinks); err != nil {

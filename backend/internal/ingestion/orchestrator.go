@@ -18,6 +18,7 @@ const maxCandidatesPerSource = 10
 type CandidateArticle struct {
 	Title        string
 	CanonicalURL string
+	CitationURL  string
 	Summary      *string
 	PublishedAt  *time.Time
 }
@@ -29,9 +30,14 @@ type SourceAdapter interface {
 
 // SourceWork binds one adapter to the Category and Source Setting it serves.
 type SourceWork struct {
-	CategoryID uuid.UUID
-	SourceID   uuid.UUID
-	Adapter    SourceAdapter
+	CategoryID          uuid.UUID
+	SourceID            uuid.UUID
+	CategoryName        string
+	SearchKeywords      *string
+	SpecialRequirements *string
+	SourceLabel         string
+	WebsiteInput        string
+	Adapter             SourceAdapter
 }
 
 // Result is the final aggregate accounting for one Ingestion Run.
@@ -147,7 +153,7 @@ func (orchestrator *Orchestrator) recordCandidate(ctx context.Context, tx *sql.T
 		articleID = uuid.New()
 		now := orchestrator.now().UTC()
 		expiresAt := now.AddDate(0, 0, 30)
-		if _, err = tx.ExecContext(ctx, `INSERT INTO articles (id,title,normalized_title_hash,canonical_url,canonical_url_hash,summary,published_at,first_seen_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, articleID, candidate.Title, titleHash, candidate.CanonicalURL, canonicalHash, candidate.Summary, candidate.PublishedAt, now, expiresAt); err != nil {
+		if _, err = tx.ExecContext(ctx, `INSERT INTO articles (id,title,normalized_title_hash,canonical_url,canonical_url_hash,citation_url,summary,published_at,first_seen_at,expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, articleID, candidate.Title, titleHash, candidate.CanonicalURL, canonicalHash, candidate.CitationURL, candidate.Summary, candidate.PublishedAt, now, expiresAt); err != nil {
 			return false, err
 		}
 		if _, err = tx.ExecContext(ctx, `INSERT INTO category_articles (category_id,article_id,source_setting_id) VALUES ($1,$2,$3) ON CONFLICT (category_id,article_id) DO NOTHING`, item.CategoryID, articleID, item.SourceID); err != nil {
