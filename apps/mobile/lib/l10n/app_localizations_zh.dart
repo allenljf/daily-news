@@ -31,6 +31,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get updateNow => '立即更新';
 
   @override
+  String get refreshPage => '刷新頁面';
+
+  @override
   String get runQueued => '排隊中';
 
   @override

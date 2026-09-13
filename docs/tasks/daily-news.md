@@ -467,6 +467,22 @@ F1 先產生 App，F2/F3 共享 core contracts 可順序執行；F4、F5 在 int
 
 - 2026-09-01：建立單一 integration journey，由 fake Google auth 進入登入後首頁，透過 production Dio／Service／Repository／Riverpod wiring 建立 Category、確認 manual Ingestion Run 並顯示 `queued`、讀取新 Article、設為永久後全域 soft delete。fake API transport 強制 `Bearer fake-firebase-token` 並只在記憶體提供需要的 routes，未連 production Firebase、GCP、LLM 或外部網路。Red mutation：暫時移除 Article row accessibility key 後，`cd apps/mobile && flutter test integration_test/daily_news_flow_test.dart` 以 `Found 0 widgets with key ['news-item-article-1']` 如期失敗；還原 key 後 Green 為 `1 passed`。`cd apps/mobile && flutter analyze` 為 `No issues found!`。Commit message：`test: add daily news integration flow`。
 
+### F7: 區分手動 Ingestion Run 與首頁資料刷新
+
+**Depends on:** F3, F4, F5
+**Parallel:** no — 共用首頁更新狀態與 Category 首頁資料。
+**Files:** Modify `apps/mobile/lib/features/home/{application/,presentation/}`, `apps/mobile/lib/features/categories/application/`, `apps/mobile/lib/l10n/app_zh.arb`, `apps/mobile/test/features/home/home_screen_test.dart`; modify this requirements/task record.
+
+- [x] **Red:** widget test 驗證手動 Run 為 queued/running 時「立即更新」停用，但「刷新頁面」仍可點擊；點擊後分別重新讀取首頁更新狀態與 Category。
+- [x] **Run Red:** `cd apps/mobile && flutter test test/features/home/home_screen_test.dart`，因 `homeDataRefreshButtonKey` 尚不存在而 compilation failed，確認 control 尚未實作。
+- [x] **Green:** 新增「刷新頁面」control；只透過既有 Home／Category controller 的 API reload 操作重新取得資料，絕不送出 `POST /v1/ingestion-runs`。所有新增可見字串放在 localization resource。
+- [x] **Run Green:** `cd apps/mobile && flutter gen-l10n && flutter analyze && flutter test test/features/home/home_screen_test.dart`。
+- [x] **Commit:** `git add docs apps/mobile && git commit -m "feat: add home data refresh control"`。
+
+**完成紀錄：**
+
+- 2026-09-13：Red：新增刷新按鈕測試後，`cd apps/mobile && flutter test test/features/home/home_screen_test.dart` 因 `homeDataRefreshButtonKey` 尚不存在而 compilation failed。Green：HomeScreen 新增「刷新頁面」control，並以既有 `HomeController.reload()` 與 `CategoriesController.reload()` 並行重讀 API 資料，不經過 ManualRun controller。focused Green command 通過（`No issues found!`、7 passed）；補強後以 queued/running 兩種 active Run 狀態驗證立即更新停用、刷新仍可點擊、Home/Category 各重讀一次且 `ManualRunRepository.requestManualRun()` 維持 0，focused suite 為 8 passed。最終驗證：`cd apps/mobile && flutter gen-l10n && flutter analyze && flutter test` 通過（31 passed）；`flutter test -d emulator-5554 integration_test/daily_news_flow_test.dart` 通過（1 passed）；`uv run --with pyyaml python flutter-dev-guide/tools/check-rules.py --files apps/mobile/lib/features/home/presentation/home_screen.dart apps/mobile/test/features/home/home_screen_test.dart` 與 `git diff --check` 通過。Commit `22ee0ff`。
+
 ---
 
 ## Phase R — Go backend replacement

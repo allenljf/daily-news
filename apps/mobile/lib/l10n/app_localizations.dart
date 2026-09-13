@@ -136,6 +136,12 @@ abstract class AppLocalizations {
   /// **'立即更新'**
   String get updateNow;
 
+  /// No description provided for @refreshPage.
+  ///
+  /// In zh, this message translates to:
+  /// **'刷新頁面'**
+  String get refreshPage;
+
   /// No description provided for @runQueued.
   ///
   /// In zh, this message translates to:

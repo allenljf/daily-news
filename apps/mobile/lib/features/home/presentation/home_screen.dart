@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_spacing.dart';
+import '../../../features/categories/application/category_controller.dart';
 import '../../../features/categories/presentation/category_home_section.dart';
 import '../../../features/news/application/manual_run_providers.dart';
 import '../../../features/news/data/manual_run.dart';
@@ -10,6 +11,8 @@ import '../../../features/news/presentation/manual_refresh_control.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/home_controller.dart';
 import '../application/home_ui_state.dart';
+
+const homeDataRefreshButtonKey = Key('home-data-refresh-button');
 
 final class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -57,6 +60,12 @@ final class HomeScreen extends ConsumerWidget {
               state: effectiveState,
               onImmediateUpdatePressed: () =>
                   showManualRefreshDialog(context, ref),
+              onRefreshPagePressed: () async {
+                await Future.wait([
+                  ref.read(homeControllerProvider.notifier).reload(),
+                  ref.read(categoriesControllerProvider.notifier).reload(),
+                ]);
+              },
               categoryContent: const CategoryHomeSection(),
             );
           },
@@ -70,12 +79,14 @@ final class HomeContent extends StatelessWidget {
   const HomeContent({
     required this.state,
     required this.onImmediateUpdatePressed,
+    required this.onRefreshPagePressed,
     required this.categoryContent,
     super.key,
   });
 
   final HomeUiState state;
   final VoidCallback onImmediateUpdatePressed;
+  final Future<void> Function() onRefreshPagePressed;
   final Widget categoryContent;
 
   @override
@@ -122,13 +133,25 @@ final class HomeContent extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AppSpacing.medium),
-              FilledButton.icon(
-                key: manualUpdateButtonKey,
-                onPressed: state.canRequestUpdate
-                    ? onImmediateUpdatePressed
-                    : null,
-                icon: const Icon(Icons.refresh),
-                label: Text(localizations.updateNow),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  FilledButton.icon(
+                    key: manualUpdateButtonKey,
+                    onPressed: state.canRequestUpdate
+                        ? onImmediateUpdatePressed
+                        : null,
+                    icon: const Icon(Icons.refresh),
+                    label: Text(localizations.updateNow),
+                  ),
+                  const SizedBox(height: AppSpacing.small),
+                  OutlinedButton.icon(
+                    key: homeDataRefreshButtonKey,
+                    onPressed: onRefreshPagePressed,
+                    icon: const Icon(Icons.refresh_outlined),
+                    label: Text(localizations.refreshPage),
+                  ),
+                ],
               ),
             ],
           ),
