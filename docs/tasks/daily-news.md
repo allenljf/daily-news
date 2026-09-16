@@ -832,23 +832,37 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 - [x] **Step 2: Verify RED** — `cd backend && go test ./internal/news -run TestStoreKeepsArticlesAfterSourceSettingReplacement -count=1` failed with `items = []news.listItem{}` against the old query.
 - [x] **Step 3: Implement GREEN** — the News list/detail queries no longer require `source_settings.deleted_at IS NULL`; Category Article visibility follows the Category and Article lifecycle instead of the current Source Setting row.
 - [x] **Step 4: Verify GREEN** — `cd backend && gofmt -l . && go vet ./... && GOFLAGS=-p=1 go test -count=1 ./...` passed for every package.
-- [ ] **Step 5: Commit and deploy** — commit the verified fix and publish it so the existing Articles become visible again.
+- [x] **Step 5: Commit and deploy** — commit the verified fix and publish it so the existing Articles become visible again.
 
 **完成紀錄：**
 
-- 2026-09-16：使用者回報「編輯 Category 後新聞全部不見」。根因：`category.Store.Update` 會 soft delete 既有 `source_settings` 再插入新列（新 id），但文章列表／詳情的 SQL 內含 `AND ss.deleted_at IS NULL`，因此任何 Category 編輯都會讓既有 `category_articles` 從 Flutter 列表與詳情消失（`backend/internal/news/news.go:87`、`:133`）。Red：`git stash` 只還原 `news.go` 後，`cd backend && go test ./internal/news -run TestStoreKeepsArticlesAfterSourceSettingReplacement -count=1` 以 `items = []news.listItem{}` 失敗，確認查詢條件即為成因。Green：移除兩處 `ss.deleted_at IS NULL`，讓 Category Article 的可見性只受 Category、Category Article 與 Article 的 soft delete／到期影響；同一 focused test 通過。Verify：`cd backend && gofmt -l . && go vet ./... && GOFLAGS=-p=1 go test -count=1 ./...` 全部 package `ok`。未修改 OpenAPI 或 Flutter contract。Step 5 尚未 commit／部署。
+- 2026-09-16：使用者回報「編輯 Category 後新聞全部不見」。根因：`category.Store.Update` 會 soft delete 既有 `source_settings` 再插入新列（新 id），但文章列表／詳情的 SQL 內含 `AND ss.deleted_at IS NULL`，因此任何 Category 編輯都會讓既有 `category_articles` 從 Flutter 列表與詳情消失（`backend/internal/news/news.go:87`、`:133`）。Red：`git stash` 只還原 `news.go` 後，`cd backend && go test ./internal/news -run TestStoreKeepsArticlesAfterSourceSettingReplacement -count=1` 以 `items = []news.listItem{}` 失敗，確認查詢條件即為成因。Green：移除兩處 `ss.deleted_at IS NULL`，讓 Category Article 的可見性只受 Category、Category Article 與 Article 的 soft delete／到期影響；同一 focused test 通過。Verify：`cd backend && gofmt -l . && go vet ./... && GOFLAGS=-p=1 go test -count=1 ./...` 全部 package `ok`。未修改 OpenAPI 或 Flutter contract。Fix commit `476b8af`（`fix: keep Category Articles after Source Setting replacement`），已 push 並由 Deploy Cloud Run workflow 發佈。
 
-### Task 9: Decide Category content-language filtering for feed entries
+### Task 9: Accept Traditional Chinese feed language variants
 
 **Depends on:** Task 2, Task 6
-**Files:** Modify `backend/internal/ingestion/rss.go` and its tests if the decision is to relax the filter; otherwise no code change.
+**Files:** Modify `backend/internal/ingestion/{rss.go,rss_test.go}` and this task record.
 
-- [ ] **Step 1: Decide** — choose between (a) keep strict filtering and set English sources to the `en` Category language, or (b) only reject entries whose own explicit language metadata conflicts, ignoring channel/feed-level language, or (c) stop filtering entirely.
-- [ ] **Step 2: Implement and verify** — update the adapter and its tests if the decision changes behavior.
+- [x] **Step 1: Decide** — the user only wants Traditional Chinese content, so keep filtering but treat `zh`, `zh-TW`, `zh-HK` and `zh-MO` as the same language as `zh-Hant`; still reject `zh-Hans`/`zh-CN`/`zh-SG` and non-Chinese languages.
+- [x] **Step 2: Implement and verify** — `matchesContentLanguage` now normalises the requested and found language before comparing; a new regression test keeps a `zh-TW` channel for a `zh-Hant` Category, and the existing Traditional/Simplified/English tests still pass.
 
 **完成紀錄：**
 
-- 2026-09-16：待使用者決定。目前 `matchesContentLanguage` 會把 channel 或 feed 層的 `<language>` 當成每個 entry 的語言，因此 `zh-Hant` Category 對宣稱 `en` 的 feed 會全部丟棄。
+- 2026-09-16：使用者回報「以前不限定繁體中文時還有資料」。`matchesContentLanguage` 把 channel 或 feed 層的 `<language>` 當成每個 entry 的語言，因此多個繁中站台（內部標示 `zh-TW`）對 `zh-Hant` Category 全數被丟棄。Red/Green：新增 `TestRSSAdapterAcceptsTraditionalChineseVariants`，並將比對改為先做語言正規化（`zh`/`zh-TW`/`zh-HK`/`zh-MO` → `zh-Hant`，`zh-CN`/`zh-SG`/`zh-Hans` → `zh-Hans`，`en-*` → `en`）。驗證：本機探針對 `ithome.com.tw`、`inside.com.tw`、`technews.tw`、`thenewslens.com` 由 eligible=0 恢復為 eligible=10；`cd backend && gofmt -w internal/ingestion && go test ./internal/ingestion -run 'RSSCategory|ContentLanguage|Traditional|English' -count=1` 通過。
+
+### Task 10: Replace or drop the general-web search fallback
+
+**Depends on:** Task 7, Task 9
+**Parallel:** no — depends on Google API availability.
+**Files:** Depending on the decision, remove `backend/internal/ingestion/googlesearch.go` and its secret wiring, or add a supported search adapter.
+
+- [ ] **Step 1: Decide** — the Google Custom Search JSON API is closed to new customers, so this project gets `403 This project does not have the access to Custom Search JSON API`. Choose between (a) drop the search fallback and rely on RSS/Atom plus platform APIs, or (b) adopt a supported alternative (for example Vertex AI Search or a third-party search API).
+- [ ] **Step 2: Implement** — remove the unusable adapter and secrets, or implement and wire the chosen alternative with the same host restriction and bounded HTTP controls.
+
+**完成紀錄：**
+
+- 2026-09-16：驗證 `customsearch.googleapis.com` 已在 `daily-news-93f7b` 啟用、API key 正確且無 application restriction，但 `https://www.googleapis.com/customsearch/v1` 仍回 403 `This project does not have the access to Custom Search JSON API`。Google 文件與社群確認該 API 已停止對新客戶開放（現有客戶至 2027-01-01）。因此 Task 7 的一般網站搜尋 fallback 對此專案無法運作；目前先改以有 feed 的繁中站台，待使用者決定 Task 10 方向。
+
 
 
 ## Plan Self-Review

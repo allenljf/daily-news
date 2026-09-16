@@ -111,10 +111,38 @@ type feedEntry struct {
 func matchesContentLanguage(requested string, values ...string) bool {
 	for _, value := range values {
 		if value = strings.TrimSpace(value); value != "" {
-			return strings.EqualFold(value, strings.TrimSpace(requested))
+			return sameContentLanguage(strings.TrimSpace(requested), value)
 		}
 	}
 	return true
+}
+
+// sameContentLanguage treats Traditional Chinese variants (zh, zh-TW, zh-HK,
+// zh-MO) as the same language, and keeps Simplified Chinese and other
+// languages distinct.
+func sameContentLanguage(requested, found string) bool {
+	requested = normalizeContentLanguage(requested)
+	found = normalizeContentLanguage(found)
+	if requested == "" || found == "" {
+		return true
+	}
+	return requested == found
+}
+
+func normalizeContentLanguage(value string) string {
+	normalized := strings.ToLower(strings.ReplaceAll(value, "_", "-"))
+	switch {
+	case normalized == "zh" || strings.HasPrefix(normalized, "zh-hant") ||
+		normalized == "zh-tw" || normalized == "zh-hk" || normalized == "zh-mo":
+		return "zh-hant"
+	case strings.HasPrefix(normalized, "zh-hans") ||
+		normalized == "zh-cn" || normalized == "zh-sg":
+		return "zh-hans"
+	case normalized == "en" || strings.HasPrefix(normalized, "en-"):
+		return "en"
+	default:
+		return normalized
+	}
 }
 
 func canonicalizeURL(raw string) (string, error) {

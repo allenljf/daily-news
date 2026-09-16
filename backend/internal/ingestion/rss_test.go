@@ -64,6 +64,22 @@ func TestRSSAdapterRejectsKnownNonTraditionalLanguageMetadata(t *testing.T) {
 	}
 }
 
+func TestRSSAdapterAcceptsTraditionalChineseVariants(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/rss+xml")
+		_, _ = writer.Write([]byte(`<?xml version="1.0"?><rss><channel><language>zh-TW</language><item><title>台灣新聞</title><link>https://news.example/tw</link></item></channel></rss>`))
+	}))
+	defer server.Close()
+
+	result, err := NewRSSAdapter(server.Client()).Search(context.Background(), SourceWork{WebsiteInput: server.URL, ContentLanguage: "zh-Hant"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Candidates) != 1 {
+		t.Fatalf("article count = %d, want 1", len(result.Candidates))
+	}
+}
+
 func TestRSSAdapterRetainsOnlyEnglishEntriesForEnglishCategory(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "application/rss+xml")
