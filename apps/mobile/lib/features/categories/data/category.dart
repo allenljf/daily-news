@@ -1,9 +1,13 @@
+const traditionalChineseContentLanguage = 'zh-Hant';
+const englishContentLanguage = 'en';
+
 final class Category {
   Category({
     required this.id,
     required this.name,
     this.searchKeywords,
     this.specialRequirements,
+    this.contentLanguage = traditionalChineseContentLanguage,
     List<SourceSetting> sourceSettings = const [],
   }) : sourceSettings = List.unmodifiable(sourceSettings);
 
@@ -11,6 +15,7 @@ final class Category {
   final String name;
   final String? searchKeywords;
   final String? specialRequirements;
+  final String contentLanguage;
   final List<SourceSetting> sourceSettings;
 }
 
@@ -37,12 +42,14 @@ final class CategoryDraft {
     required this.name,
     required this.searchKeywords,
     required this.specialRequirements,
+    this.contentLanguage = traditionalChineseContentLanguage,
     required List<SourceSettingDraft> sourceSettings,
   }) : sourceSettings = List.unmodifiable(sourceSettings);
 
   final String name;
   final String? searchKeywords;
   final String? specialRequirements;
+  final String contentLanguage;
   final List<SourceSettingDraft> sourceSettings;
 }
 

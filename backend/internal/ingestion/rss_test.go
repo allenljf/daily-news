@@ -64,6 +64,25 @@ func TestRSSAdapterRejectsKnownNonTraditionalLanguageMetadata(t *testing.T) {
 	}
 }
 
+func TestRSSAdapterRetainsOnlyEnglishEntriesForEnglishCategory(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/rss+xml")
+		_, _ = writer.Write([]byte(`<?xml version="1.0"?><rss><channel><item><title>English News</title><link>https://news.example/english</link><language>en</language></item><item><title>Traditional News</title><link>https://news.example/traditional</link><language>zh-Hant</language></item></channel></rss>`))
+	}))
+	defer server.Close()
+
+	result, err := NewRSSAdapter(server.Client()).Search(context.Background(), SourceWork{WebsiteInput: server.URL, ContentLanguage: "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Candidates) != 1 {
+		t.Fatalf("article count = %d, want 1", len(result.Candidates))
+	}
+	if result.Candidates[0].Title != "English News" {
+		t.Fatalf("retained title = %q, want English News", result.Candidates[0].Title)
+	}
+}
+
 func TestRSSAdapterRejectsNonTraditionalAtomEntryLanguage(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Set("Content-Type", "application/atom+xml")

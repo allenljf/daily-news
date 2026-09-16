@@ -42,12 +42,56 @@ final class CategoriesController extends AsyncNotifier<CategoriesUiState> {
     }
   }
 
+  Future<bool> updateCategory(String categoryId, CategoryDraft draft) async {
+    final current = state.asData?.value;
+    if (current == null || current.isSubmitting) {
+      return false;
+    }
+    state = AsyncData(current.copyWith(isSubmitting: true, saveFailed: false));
+    final repository = ref.read(categoryRepositoryProvider);
+    try {
+      await repository.updateCategory(categoryId, draft);
+      state = AsyncData(await _load(repository));
+      return true;
+    } on CategoryRepositoryFailure {
+      state = AsyncData(
+        current.copyWith(isSubmitting: false, saveFailed: true),
+      );
+      return false;
+    }
+  }
+
+  Future<bool> deleteCategory(String categoryId) async {
+    final repository = ref.read(categoryRepositoryProvider);
+    try {
+      await repository.deleteCategory(categoryId);
+      state = AsyncData(await _load(repository));
+      return true;
+    } on CategoryRepositoryFailure {
+      return false;
+    }
+  }
+
   Future<CategoriesUiState> _load(CategoryRepository repository) async {
     final categories = await repository.loadCategories();
     return CategoriesUiState(
       categories: [
         for (final category in categories)
-          CategoryItemUi(id: category.id, name: category.name),
+          CategoryItemUi(
+            id: category.id,
+            name: category.name,
+            searchKeywords: category.searchKeywords,
+            specialRequirements: category.specialRequirements,
+            contentLanguage: category.contentLanguage,
+            sourceSettings: [
+              for (final source in category.sourceSettings)
+                SourceSettingItemUi(
+                  label: source.label,
+                  websiteInput: source.websiteInput,
+                  kind: source.kind,
+                ),
+            ],
+          ),
       ],
     );
   }

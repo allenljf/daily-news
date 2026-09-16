@@ -41,12 +41,25 @@ func TestHandlerRejectsUnsupportedContentLanguage(t *testing.T) {
 
 	mux := NewHandler(nil, fakeVerifier{identity: identity.Identity{UID: "user", Email: "allowed@example.com"}}, "allowed@example.com")
 	response := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/v1/categories", strings.NewReader(`{"name":"AI research","content_language":"en","source_settings":[]}`))
+	request := httptest.NewRequest(http.MethodPost, "/v1/categories", strings.NewReader(`{"name":"AI research","content_language":"fr","source_settings":[]}`))
 	request.Header.Set("Authorization", "Bearer token")
 	mux.ServeHTTP(response, request)
 
 	if response.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusUnprocessableEntity)
+	}
+}
+
+func TestValidateAcceptsEnglishContentLanguage(t *testing.T) {
+	t.Parallel()
+
+	err := validate(Request{
+		Name:               "English technology",
+		ContentLanguage:    EnglishContentLanguage,
+		contentLanguageSet: true,
+	})
+	if err != nil {
+		t.Fatalf("validate English content language: %v", err)
 	}
 }
 

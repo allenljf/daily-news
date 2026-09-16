@@ -82,6 +82,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String get specialRequirements => '其他特殊需求';
 
   @override
+  String get contentLanguage => '內容語言';
+
+  @override
+  String get english => '英文';
+
+  @override
+  String get traditionalChinese => '繁體中文';
+
+  @override
   String get saveSettings => '儲存設定';
 
   @override
@@ -89,6 +98,21 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get categorySaveFailed => '儲存失敗，請重新嘗試';
+
+  @override
+  String get deleteCategory => '刪除新聞類別';
+
+  @override
+  String get editCategory => '編輯新聞類別';
+
+  @override
+  String get deleteCategoryExplanation => '會停止後續擷取並移除這個類別的關聯。其他類別仍引用的文章不會被刪除。';
+
+  @override
+  String get delete => '刪除';
+
+  @override
+  String get categoryDeleteFailed => '無法刪除新聞類別，請重新嘗試';
 
   @override
   String get news => '新聞';
@@ -100,7 +124,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get newsLoadFailed => '無法讀取新聞';
 
   @override
-  String get noNews => '目前沒有新聞';
+  String get noNews => '目前沒有資料';
 
   @override
   String get makePermanent => '設為永久';

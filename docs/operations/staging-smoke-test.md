@@ -10,8 +10,10 @@ The staging smoke test fails immediately if any of these conditions occurs:
 
 - GitHub Actions cannot exchange its OIDC token through WIF or cannot deploy
   the service and Job with the documented deployer identity.
-- `GET /healthz` does not reach the Go handler and return `200`,
-  `application/json`, and `{"status":"ok"}` through the public Cloud Run URL.
+- The public versioned API does not reach the Go handler: unauthenticated
+  `GET /v1/categories` must return `401 application/problem+json`. The exact
+  `GET /healthz` path is not used as the public probe because Google Frontend
+  intercepts it with an HTML `404` before the revision.
 - A missing Firebase token does not return `401 application/problem+json`, or
   an authenticated account other than `ALLOWED_USER_EMAIL` can read or mutate
   Daily News data instead of receiving `403 application/problem+json`.
@@ -42,8 +44,9 @@ The staging smoke test fails immediately if any of these conditions occurs:
    the service and Job are Ready, the service uses the Go image, ingress is
    `all`, public invocation is enabled, and traffic is 100% on the intended
    revision.
-2. Call public `/healthz`. Then call one protected endpoint without a token and
-   verify the API's `401 application/problem+json` boundary.
+2. Call `GET /v1/categories` without a token and verify the API's
+   `401 application/problem+json` boundary. Do not use public `/healthz` as a
+   reachability probe; Google Frontend intercepts that exact path.
 3. With a non-allowlisted Firebase ID token, verify `403` and no data exposure.
 4. With the allowlisted account, create a disposable Category with at least one
    public Source Setting. Record its Category and Source Setting IDs.
@@ -78,8 +81,32 @@ The staging smoke test fails immediately if any of these conditions occurs:
   the Go `CandidateArticle`/PostgreSQL schema has no citation field. Therefore a
   Run can only terminate with zero source work and cannot satisfy the public
   source/citation acceptance criterion.
+- A short-lived, public `daily-news-edge-probe` service using Google's Hello
+  image returned `200` from its generated `run.app` URL in the same project and
+  region. This isolates the persistent `daily-news-api` HTML `404` to that
+  service's hostname registration rather than the project, region, IAM,
+  ingress, deployed image, or Cloud Run edge generally.
 
-Result: **blocked before authenticated or data-mutating smoke steps**. The
-Cloud Run hostname registration needs platform repair or service recreation,
-and the ingestion/citation gap must be returned to implementation planning
-before O4 can pass.
+Correction: the Google HTML `404` applies only to the exact public
+`/healthz` path. Requests to `/` reach the Go container (its standard mux
+`404`), and unauthenticated `GET /v1/categories` reaches the application and
+returns the expected `401 application/problem+json`. The Go production
+composition had independently omitted `/healthz`: `cmd/api` passed
+`api.NewHandler` to the server, replacing `httpapi.NewMux`. Commit `c737370`
+adds that route to the composed handler and GitHub Actions deployed the amd64
+image as `daily-news-api-00002-brl`. The exact `/healthz` GFE response persists
+even on an otherwise working revision, so this runbook uses the versioned API
+authentication response as the external reachability check rather than treating
+the reserved/conflicting health path as a hostname outage.
+
+The staging database was initially empty. Cloud Run Job execution
+`daily-news-ingestion-lr6jv`, with Run ID
+`9281481e-3192-4c36-9314-45ea1368536e`, completed successfully after applying
+schema migration version `3`; its zero candidates and zero attempts are
+expected until an allowlisted user creates a Category with a public HTTP(S)
+source setting.
+
+The short-lived diagnostic fallback services `daily-news-api-staging` and
+`daily-news-staging-api` were deleted after the original service's versioned
+API route was verified. The retained staging API is `daily-news-api` revision
+`daily-news-api-00002-brl`.

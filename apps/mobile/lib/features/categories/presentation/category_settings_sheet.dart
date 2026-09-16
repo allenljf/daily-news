@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/category_controller.dart';
+import '../application/category_ui_state.dart';
 import '../data/category.dart';
 
 const categoryNameFieldKey = Key('category-name-field');
 const searchKeywordsFieldKey = Key('search-keywords-field');
 const specialRequirementsFieldKey = Key('special-requirements-field');
+const contentLanguageFieldKey = Key('content-language-field');
 const addSourceSettingButtonKey = Key('add-source-setting-button');
 const addSourceDialogFieldKey = Key('add-source-dialog-field');
 const saveCategoryButtonKey = Key('save-category-button');
@@ -16,16 +18,25 @@ const saveCategoryButtonKey = Key('save-category-button');
 Key sourceSettingFieldKey(int index) => ValueKey('source-setting-$index');
 
 final class CategorySettingsSheet extends ConsumerWidget {
-  const CategorySettingsSheet({super.key});
+  const CategorySettingsSheet({this.category, super.key});
+
+  final CategoryItemUi? category;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final screenState = ref.watch(categoriesControllerProvider).asData?.value;
+    final existing = category;
     return CategorySettingsForm(
+      initialCategory: existing,
       isSubmitting: screenState?.isSubmitting ?? false,
       saveFailed: screenState?.saveFailed ?? false,
-      onSave: (draft) =>
-          ref.read(categoriesControllerProvider.notifier).createCategory(draft),
+      onSave: (draft) => existing == null
+          ? ref
+                .read(categoriesControllerProvider.notifier)
+                .createCategory(draft)
+          : ref
+                .read(categoriesControllerProvider.notifier)
+                .updateCategory(existing.id, draft),
     );
   }
 }
@@ -35,12 +46,14 @@ final class CategorySettingsForm extends StatefulWidget {
     required this.isSubmitting,
     required this.saveFailed,
     required this.onSave,
+    this.initialCategory,
     super.key,
   });
 
   final bool isSubmitting;
   final bool saveFailed;
   final Future<bool> Function(CategoryDraft draft) onSave;
+  final CategoryItemUi? initialCategory;
 
   @override
   State<CategorySettingsForm> createState() => _CategorySettingsFormState();
@@ -51,9 +64,38 @@ final class _CategorySettingsFormState extends State<CategorySettingsForm> {
   final _nameController = TextEditingController();
   final _keywordsController = TextEditingController();
   final _specialRequirementsController = TextEditingController();
+  String _contentLanguage = traditionalChineseContentLanguage;
   final List<TextEditingController> _sourceControllers = [
     TextEditingController(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialCategory;
+    if (initial == null) {
+      return;
+    }
+    _nameController.text = initial.name;
+    _keywordsController.text = initial.searchKeywords ?? '';
+    _specialRequirementsController.text = initial.specialRequirements ?? '';
+    _contentLanguage = initial.contentLanguage;
+    final sources = [
+      for (final source in initial.sourceSettings)
+        if (source.websiteInput.trim().isNotEmpty) source.websiteInput.trim(),
+    ];
+    if (sources.isEmpty) {
+      return;
+    }
+    for (final controller in _sourceControllers) {
+      controller.dispose();
+    }
+    _sourceControllers
+      ..clear()
+      ..addAll([
+        for (final source in sources) TextEditingController(text: source),
+      ]);
+  }
 
   @override
   void dispose() {
@@ -143,6 +185,31 @@ final class _CategorySettingsFormState extends State<CategorySettingsForm> {
                 minLines: 3,
                 maxLines: 5,
               ),
+              const SizedBox(height: AppSpacing.medium),
+              DropdownButtonFormField<String>(
+                key: contentLanguageFieldKey,
+                initialValue: _contentLanguage,
+                decoration: InputDecoration(
+                  labelText: localizations.contentLanguage,
+                ),
+                items: [
+                  DropdownMenuItem(
+                    value: traditionalChineseContentLanguage,
+                    child: Text(localizations.traditionalChinese),
+                  ),
+                  DropdownMenuItem(
+                    value: englishContentLanguage,
+                    child: Text(localizations.english),
+                  ),
+                ],
+                onChanged: widget.isSubmitting
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          setState(() => _contentLanguage = value);
+                        }
+                      },
+              ),
               if (widget.saveFailed) ...[
                 const SizedBox(height: AppSpacing.medium),
                 Text(
@@ -189,6 +256,7 @@ final class _CategorySettingsFormState extends State<CategorySettingsForm> {
       specialRequirements: _nullableTrimmed(
         _specialRequirementsController.text,
       ),
+      contentLanguage: _contentLanguage,
       sourceSettings: [
         for (final controller in _sourceControllers)
           if (controller.text.trim().isNotEmpty)

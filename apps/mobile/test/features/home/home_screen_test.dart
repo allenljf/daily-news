@@ -200,10 +200,18 @@ final class _FakeCategoryRepository implements CategoryRepository {
   }
 
   @override
+  Future<Category> updateCategory(String categoryId, CategoryDraft draft) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<List<Category>> loadCategories() async {
     loadCount++;
     return const [];
   }
+
+  @override
+  Future<void> deleteCategory(String categoryId) async {}
 }
 
 final class _FakeManualRunRepository implements ManualRunRepository {

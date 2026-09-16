@@ -238,6 +238,24 @@ abstract class AppLocalizations {
   /// **'其他特殊需求'**
   String get specialRequirements;
 
+  /// No description provided for @contentLanguage.
+  ///
+  /// In zh, this message translates to:
+  /// **'內容語言'**
+  String get contentLanguage;
+
+  /// No description provided for @english.
+  ///
+  /// In zh, this message translates to:
+  /// **'英文'**
+  String get english;
+
+  /// No description provided for @traditionalChinese.
+  ///
+  /// In zh, this message translates to:
+  /// **'繁體中文'**
+  String get traditionalChinese;
+
   /// No description provided for @saveSettings.
   ///
   /// In zh, this message translates to:
@@ -255,6 +273,36 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'儲存失敗，請重新嘗試'**
   String get categorySaveFailed;
+
+  /// No description provided for @deleteCategory.
+  ///
+  /// In zh, this message translates to:
+  /// **'刪除新聞類別'**
+  String get deleteCategory;
+
+  /// No description provided for @editCategory.
+  ///
+  /// In zh, this message translates to:
+  /// **'編輯新聞類別'**
+  String get editCategory;
+
+  /// No description provided for @deleteCategoryExplanation.
+  ///
+  /// In zh, this message translates to:
+  /// **'會停止後續擷取並移除這個類別的關聯。其他類別仍引用的文章不會被刪除。'**
+  String get deleteCategoryExplanation;
+
+  /// No description provided for @delete.
+  ///
+  /// In zh, this message translates to:
+  /// **'刪除'**
+  String get delete;
+
+  /// No description provided for @categoryDeleteFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'無法刪除新聞類別，請重新嘗試'**
+  String get categoryDeleteFailed;
 
   /// No description provided for @news.
   ///
@@ -277,7 +325,7 @@ abstract class AppLocalizations {
   /// No description provided for @noNews.
   ///
   /// In zh, this message translates to:
-  /// **'目前沒有新聞'**
+  /// **'目前沒有資料'**
   String get noNews;
 
   /// No description provided for @makePermanent.

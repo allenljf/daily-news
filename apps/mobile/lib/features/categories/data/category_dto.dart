@@ -1,9 +1,12 @@
+import 'category.dart';
+
 final class CategoryDto {
   const CategoryDto({
     required this.id,
     required this.name,
     required this.searchKeywords,
     required this.specialRequirements,
+    required this.contentLanguage,
     required this.sourceSettings,
   });
 
@@ -17,6 +20,9 @@ final class CategoryDto {
       name: _requiredString(json, 'name'),
       searchKeywords: _optionalString(json['search_keywords']),
       specialRequirements: _optionalString(json['special_requirements']),
+      contentLanguage: json.containsKey('content_language')
+          ? _requiredString(json, 'content_language')
+          : traditionalChineseContentLanguage,
       sourceSettings: [
         for (final source in sources)
           if (source is Map)
@@ -33,6 +39,7 @@ final class CategoryDto {
   final String name;
   final String? searchKeywords;
   final String? specialRequirements;
+  final String contentLanguage;
   final List<SourceSettingDto> sourceSettings;
 }
 

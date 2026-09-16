@@ -19,7 +19,10 @@ import (
 
 var ErrNotFound = errors.New("category not found")
 
-const DefaultContentLanguage = "zh-Hant"
+const (
+	DefaultContentLanguage = "zh-Hant"
+	EnglishContentLanguage = "en"
+)
 
 type SourceSettingInput struct {
 	Label        string `json:"label"`
@@ -243,9 +246,6 @@ func validate(request Request) error {
 	if strings.TrimSpace(request.Name) == "" {
 		return errors.New("category name is blank")
 	}
-	if request.contentLanguageSet && request.ContentLanguage != DefaultContentLanguage {
-		return errors.New("unsupported content language")
-	}
 	if _, err := normalizedContentLanguage(request.ContentLanguage); err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func normalizedContentLanguage(value string) (string, error) {
 	if value == "" {
 		return DefaultContentLanguage, nil
 	}
-	if value != DefaultContentLanguage {
+	if value != DefaultContentLanguage && value != EnglishContentLanguage {
 		return "", errors.New("unsupported content language")
 	}
 	return value, nil

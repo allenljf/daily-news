@@ -7,6 +7,10 @@ abstract interface class CategoryRepository {
   Future<List<Category>> loadCategories();
 
   Future<Category> createCategory(CategoryDraft draft);
+
+  Future<Category> updateCategory(String categoryId, CategoryDraft draft);
+
+  Future<void> deleteCategory(String categoryId);
 }
 
 enum CategoryRepositoryFailure implements Exception { unavailable }
@@ -35,12 +39,36 @@ final class RemoteCategoryRepository implements CategoryRepository {
     }
   }
 
+  @override
+  Future<Category> updateCategory(
+    String categoryId,
+    CategoryDraft draft,
+  ) async {
+    try {
+      return _toCategory(
+        await _remoteService.updateCategory(categoryId, draft),
+      );
+    } on ApiFailure {
+      throw CategoryRepositoryFailure.unavailable;
+    }
+  }
+
+  @override
+  Future<void> deleteCategory(String categoryId) async {
+    try {
+      await _remoteService.deleteCategory(categoryId);
+    } on ApiFailure {
+      throw CategoryRepositoryFailure.unavailable;
+    }
+  }
+
   static Category _toCategory(CategoryDto dto) {
     return Category(
       id: dto.id,
       name: dto.name,
       searchKeywords: dto.searchKeywords,
       specialRequirements: dto.specialRequirements,
+      contentLanguage: dto.contentLanguage,
       sourceSettings: [
         for (final source in dto.sourceSettings)
           SourceSetting(

@@ -91,7 +91,21 @@ func TestStorePreservesDefaultContentLanguageAndDatabaseConstraint(t *testing.T)
 		t.Fatalf("database default content language = %q, want %q", databaseDefault, "zh-Hant")
 	}
 
-	if _, err := database.Exec(`INSERT INTO categories (id,name,content_language) VALUES ($1,$2,$3)`, uuid.New(), "English news", "en"); err == nil {
+	english, err := store.Create(context.Background(), Request{
+		Name:               "English news",
+		ContentLanguage:    EnglishContentLanguage,
+		contentLanguageSet: true,
+	})
+	if err != nil {
+		t.Fatalf("create English category: %v", err)
+	}
+	if english.ContentLanguage != EnglishContentLanguage {
+		t.Fatalf("English content language = %q, want %q", english.ContentLanguage, EnglishContentLanguage)
+	}
+	if _, err := database.Exec(`INSERT INTO categories (id,name,content_language) VALUES ($1,$2,$3)`, uuid.New(), "Another English category", EnglishContentLanguage); err != nil {
+		t.Fatalf("database rejected English content language: %v", err)
+	}
+	if _, err := database.Exec(`INSERT INTO categories (id,name,content_language) VALUES ($1,$2,$3)`, uuid.New(), "Unsupported language", "fr"); err == nil {
 		t.Fatal("INSERT with unsupported content language succeeded")
 	}
 }

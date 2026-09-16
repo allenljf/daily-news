@@ -28,25 +28,43 @@ final class CategoryRemoteService {
   Future<CategoryDto> createCategory(CategoryDraft draft) {
     return _apiClient.post(
       'categories',
-      data: {
-        'name': draft.name,
-        'search_keywords': draft.searchKeywords,
-        'special_requirements': draft.specialRequirements,
-        'source_settings': [
-          for (final source in draft.sourceSettings)
-            {
-              'label': source.label,
-              'website_input': source.websiteInput,
-              'kind': source.kind,
-            },
-        ],
-      },
-      decode: (json) {
-        if (json case final Map<String, Object?> object) {
-          return CategoryDto.fromJson(object);
-        }
-        throw const FormatException('Expected a JSON object.');
-      },
+      data: _draftBody(draft),
+      decode: _decodeCategory,
     );
+  }
+
+  Future<CategoryDto> updateCategory(String categoryId, CategoryDraft draft) {
+    return _apiClient.patch(
+      'categories/$categoryId',
+      data: _draftBody(draft),
+      decode: _decodeCategory,
+    );
+  }
+
+  Future<void> deleteCategory(String categoryId) =>
+      _apiClient.delete('categories/$categoryId');
+
+  static Map<String, Object?> _draftBody(CategoryDraft draft) {
+    return {
+      'name': draft.name,
+      'search_keywords': draft.searchKeywords,
+      'special_requirements': draft.specialRequirements,
+      'content_language': draft.contentLanguage,
+      'source_settings': [
+        for (final source in draft.sourceSettings)
+          {
+            'label': source.label,
+            'website_input': source.websiteInput,
+            'kind': source.kind,
+          },
+      ],
+    };
+  }
+
+  static CategoryDto _decodeCategory(Object? json) {
+    if (json case final Map<String, Object?> object) {
+      return CategoryDto.fromJson(object);
+    }
+    throw const FormatException('Expected a JSON object.');
   }
 }

@@ -75,7 +75,8 @@
         "properties": {
           "content_language": {
             "enum": [
-              "zh-Hant"
+              "zh-Hant",
+              "en"
             ],
             "title": "Content Language",
             "type": "string"
@@ -136,7 +137,8 @@
           "content_language": {
             "default": "zh-Hant",
             "enum": [
-              "zh-Hant"
+              "zh-Hant",
+              "en"
             ],
             "title": "Content Language",
             "type": "string"
@@ -556,7 +558,8 @@
           "content_language": {
             "default": "zh-Hant",
             "enum": [
-              "zh-Hant"
+              "zh-Hant",
+              "en"
             ],
             "title": "Content Language",
             "type": "string"
