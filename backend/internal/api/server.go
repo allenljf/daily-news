@@ -22,7 +22,7 @@ func NewHandler(database *sql.DB, verifier identity.TokenVerifier, allowedEmail 
 		switch {
 		case request.Method == http.MethodGet && request.URL.Path == "/healthz":
 			httpapi.Healthz(writer, request)
-		case request.URL.Path == "/v1/categories" || (strings.HasPrefix(request.URL.Path, "/v1/categories/") && strings.Contains(request.URL.Path, "/news")):
+		case request.URL.Path == "/v1/categories" || strings.HasPrefix(request.URL.Path, "/v1/categories/"):
 			if strings.Contains(request.URL.Path, "/news") {
 				articles.ServeHTTP(writer, request)
 				return

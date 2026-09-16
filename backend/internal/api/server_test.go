@@ -36,6 +36,7 @@ func TestHandlerRoutesEveryV1FamilyThroughSharedAuthentication(t *testing.T) {
 	handler := NewHandler(nil, verifier{}, "allowed@example.com", noopLauncher{})
 	for _, requestCase := range []struct{ method, target string }{
 		{http.MethodGet, "/v1/categories"},
+		{http.MethodDelete, "/v1/categories/00000000-0000-0000-0000-000000000000"},
 		{http.MethodGet, "/v1/categories/00000000-0000-0000-0000-000000000000/news"},
 		{http.MethodPatch, "/v1/news/00000000-0000-0000-0000-000000000000"},
 		{http.MethodGet, "/v1/ingestion-runs/latest"},
