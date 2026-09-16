@@ -26,6 +26,15 @@ def test_cloud_run_job_executes_go_job_binary() -> None:
     assert "scripts/run-job.sh" not in manifest
 
 
+def test_cloud_run_job_injects_ingestion_adapter_secrets() -> None:
+    manifest = (REPOSITORY_ROOT / "infra/cloud-run/job.yaml").read_text()
+
+    for secret in ("GOOGLE_CSE_API_KEY", "GOOGLE_CSE_ID", "YOUTUBE_API_KEY"):
+        assert f"name: {secret}" in manifest
+    assert "GOOGLE_CSE_DATE_RESTRICT" in manifest
+
+
+
 def test_cloud_run_service_declares_public_invocation_for_flutter_auth() -> None:
     manifest = (REPOSITORY_ROOT / "infra/cloud-run/service.yaml").read_text()
 

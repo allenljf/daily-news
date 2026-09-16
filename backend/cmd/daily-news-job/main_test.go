@@ -26,6 +26,20 @@ func TestJobCompositionPlansWorkBeforeRunningOrchestrator(t *testing.T) {
 	}
 }
 
+func TestJobCompositionUsesCompositeSourceAdapter(t *testing.T) {
+	source, err := os.ReadFile("main.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(source)
+	if !strings.Contains(text, "NewHostRouter") || !strings.Contains(text, "NewWebSourceAdapter") {
+		t.Fatalf("job composition does not build the composite web source adapter")
+	}
+	if strings.Contains(text, "NewRSSAdapter(http.DefaultClient)") {
+		t.Fatalf("job composition still treats every HTTP(S) URL as a direct RSS feed")
+	}
+}
+
 func TestRunRejectsMalformedRunID(t *testing.T) {
 	t.Parallel()
 

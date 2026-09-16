@@ -127,10 +127,10 @@ flutter-dev-guide/
 2. **搜尋關鍵字**文字輸入；可留空，留空時以 Category 名稱作為查詢語意。
 3. **搜尋網站**：初始顯示一個可編輯的「未指定網站」文字欄位，代表一般公開網頁搜尋；旁邊有新增按鈕。每次點擊新增按鈕，開啟 dialog 讓使用者輸入網站名稱或 URL；確認後新增一個可編輯的 Source Setting 欄位。空白欄位不保存。
 4. **其他特殊需求**多行文字輸入；可留空。
-5. **內容語言**選擇器；目前唯一選項是「繁體中文」（`zh-Hant`），新增與既有 Category 預設皆為此值。
+5. **內容語言**選擇器；可選「繁體中文」（`zh-Hant`）或「英文」（`en`），新增與既有 Category 預設皆為繁體中文。
 6. **儲存設定**按鈕；送出 `POST /v1/categories` 或既有 Category 的 `PATCH`。
 
-輸入錯誤在欄位旁顯示；儲存中不可重複提交；成功後關閉 Bottom Sheet 並刷新首頁。Category 的編輯與刪除放在其設定入口；刪除 Category 不刪除仍被其他 Category 引用的 Article。
+輸入錯誤在欄位旁顯示；儲存中不可重複提交；成功後關閉 Bottom Sheet 並刷新首頁。Category 的編輯放在其設定入口；刪除放在 Category 新聞列表右上角，須先顯示確認 dialog。刪除會停用 Category 的 Source Setting 與後續擷取，並移除其 Category Article 關聯；不刪除仍被其他 Category 引用的 Article。
 
 ### 5.3 Category 詳情與新聞詳情
 
@@ -155,7 +155,7 @@ IngestionRun 1 ─── * IngestionAttempt
 
 | 實體 | 關鍵欄位 |
 |---|---|
-| `categories` | id、name、search_keywords、special_requirements、content_language（僅 `zh-Hant`，預設值）、created_at、updated_at、deleted_at |
+| `categories` | id、name、search_keywords、special_requirements、content_language（`zh-Hant` 或 `en`，預設 `zh-Hant`）、created_at、updated_at、deleted_at |
 | `source_settings` | id、category_id、label、website_input、normalized_host、kind、position、created_at、deleted_at |
 | `articles` | id、title、normalized_title_hash、canonical_url、canonical_url_hash、summary、published_at、first_seen_at、expires_at、deleted_at |
 | `category_articles` | category_id、article_id、source_setting_id、inserted_at |
@@ -203,14 +203,22 @@ Job 依序讀取每個有效的 Category 與 Source Setting；每一組至多保
 
 ### 8.2 搜尋與 adapter
 
-Category、搜尋關鍵字、來源提示、特殊需求與內容語言會組成 prompt。此版本只接受繁體中文（`zh-Hant`）；LLM 的輸出只是候選與摘要輔助，寫入前必須有可驗證 URL、來源資訊與去重檢查。每個 Article 保存原文 URL、canonical URL、來源與可用 citation。
+Category、搜尋關鍵字、來源提示、特殊需求與內容語言會組成 prompt。此版本接受繁體中文（`zh-Hant`）或英文（`en`）；LLM 的輸出只是候選與摘要輔助，寫入前必須有可驗證 URL、來源資訊與去重檢查。每個 Article 保存原文 URL、canonical URL、來源與可用 citation。
+
+一般公開網站的最小 HTTP(S) Source Setting 現在可填首頁 URL。Job 以單一 composite adapter 依序嘗試（見 [`Web Source Adapter Design`](../superpowers/specs/2026-09-16-web-source-adapters-design.md)）：
+
+1. 直接解析 RSS/Atom。
+2. 若回應是 HTML，只讀取 `rel` 含 `alternate` 且 type 為 RSS/Atom 的 `<link>`，將相對 `href` 解析為絕對 URL，要求公開 HTTP(S) 且位於設定網站的 host 或其 subdomain，並取得第一個合格 feed。
+3. 若沒有合格 feed，或 feed 取得／解析失敗，呼叫 Google Custom Search JSON API，只接受同 host/subdomain、公開 HTTP(S) 的結果，並可用 `dateRestrict` 限制近期範圍。任何 fallback 都不會停用單一來源失敗隔離、30 天到期、全域 soft delete 或 URL 優先、標題次之去重。
 
 | 來源類型 | 首選方式 | 限制 |
 |---|---|---|
-| 一般公開新聞站／官方部落格 | RSS/Atom（存在時）→ Gemini Google Search 與 URL Context | 只處理公開可索引、可直讀頁；不得假定收錄、即時性或全文可得。 |
-| YouTube | YouTube Data API | URL Context 不支援影片內容。 |
+| 一般公開新聞站／官方部落格 | 直接 RSS/Atom → 從首頁 HTML `<link rel="alternate">` 發現同 host/subdomain 的 RSS/Atom → Google Custom Search JSON API | 只處理公開可索引、可直讀頁；自動發現的 feed 與搜尋候選都必須是公開 HTTP(S) 且限於設定網站的 host/subdomain；搜尋可用 `dateRestrict` 控制近期範圍；不得假定收錄、即時性或全文可得。 |
+| YouTube | YouTube Data API v3 `search.list` 關鍵字搜尋 | 固定 `type=video`、每來源最多 10 筆，必要時使用 `relevanceLanguage`；由 `YOUTUBE_API_KEY` 啟用；保存影片公開 URL 作 canonical URL 與 citation；URL Context 不支援影片內容。 |
 | GitHub | GitHub REST API（release/event 等） | 未授權公開請求有限流；private repo 需要適當授權。 |
-| Facebook／Instagram／Threads | 對應 Meta API，且僅限取得授權後 | 不把一般搜尋當成可讀取任意社群內容的 contract。 |
+| Facebook／Instagram／Threads | 未來 adapter，僅限指定 Page、已授權 Professional 帳號／hashtag，或官方 Threads API | 目前不支援任意全文關鍵字搜尋；不得以 Google Custom Search 或其他一般搜尋取代，也不得當成可讀取任意 Meta 社群內容的 contract。 |
+
+首頁與 feed 取得共用一個受控 HTTP client：具 request timeout、2 MiB response size limit、redirect cap，並在連線前拒絕 loopback、link-local、private 及其他非公開位址。任何 adapter 都不得在 error summary 記錄 API key、access token、prompt、頁面全文或 Firebase token。Google Custom Search 的 `GOOGLE_CSE_DATE_RESTRICT` 預設限制近期結果，以降低舊資料被收錄的機會。
 
 ## 9. 安全、秘密與設定
 
@@ -225,11 +233,15 @@ Cloud Run runtime 自 Secret Manager 取得必要秘密。GitHub Actions 不持�
 
 | 名稱 | 需要時機 | 建議位置 |
 |---|---|---|
-| `GEMINI_API_KEY` | 選 Gemini Developer API 時 | Secret Manager。使用 Vertex AI IAM 時不建立此 key。 |
+| `GOOGLE_CSE_API_KEY` | 啟用一般網站 Google Custom Search fallback 時 | Secret Manager。 |
+| `GOOGLE_CSE_ID` | 啟用 Google Custom Search fallback 時 | Secret Manager（設定值，非敏感）。 |
+| `GOOGLE_CSE_DATE_RESTRICT` | 選用 | Job 環境設定，非秘密；控制搜尋近期範圍，有預設值。 |
 | `DB_PASSWORD` | PostgreSQL password authentication | Secret Manager。 |
 | `GITHUB_NEWS_TOKEN` | 需要較高 GitHub API rate limit 或 private 資源時 | Secret Manager。 |
 | `YOUTUBE_API_KEY` | 啟用 YouTube adapter 時 | Secret Manager。 |
-| Meta platform access token | 啟用對應且已授權的 Meta adapter 時 | Secret Manager。 |
+| Meta platform access token | 啟用 Facebook／Instagram／Threads 且已授權的未來 Meta adapter 時 | Secret Manager。 |
+
+Facebook／Instagram／Threads adapter 不進行任意全文關鍵字搜尋，且不得以 Google Custom Search 或 LLM 代理讀取；未配置憑證或未取得授權時只讓該 Source Setting 產生 failed Attempt。
 
 Firebase client configuration 是可公開的 client 設定，不是 server secret；Firebase Admin 在 Cloud Run 以 Application Default Credentials 運作。後端以環境設定 `ALLOWED_USER_EMAIL` 進行 allowlist 比對，log 不得輸出完整 ID token、prompt、秘密或個人資料。
 
@@ -278,6 +290,6 @@ Firebase client configuration 是可公開的 client 設定，不是 server secr
 - [Firebase Crashlytics for Flutter](https://firebase.google.com/docs/crashlytics/flutter/get-started)
 - [Cloud Run Go service quickstart](https://cloud.google.com/run/docs/quickstarts/build-and-deploy/deploy-go-service)
 - [GitHub OIDC/WIF for deployment pipelines](https://cloud.google.com/iam/docs/workload-identity-federation-with-deployment-pipelines)
-- [Gemini Google Search grounding](https://ai.google.dev/gemini-api/docs/google-search)
-- [Gemini URL Context](https://ai.google.dev/gemini-api/docs/url-context)
+- [Google Custom Search JSON API](https://developers.google.com/custom-search/v1/overview)
+- [YouTube Data API search.list](https://developers.google.com/youtube/v3/docs/search/list)
 - [完整官方來源研究](../research/2026-08-29-modern-flutter-architecture.md)

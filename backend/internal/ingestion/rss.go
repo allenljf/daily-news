@@ -1,19 +1,20 @@
 package ingestion
 
 import (
+	"bytes"
 	"context"
 	"encoding/xml"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
 )
 
 // RSSAdapter reads direct public RSS feeds configured as Source Settings.
-type RSSAdapter struct{ client *http.Client }
+type RSSAdapter struct{ client HTTPDoer }
 
-func NewRSSAdapter(client *http.Client) *RSSAdapter { return &RSSAdapter{client: client} }
+func NewRSSAdapter(client HTTPDoer) *RSSAdapter { return &RSSAdapter{client: client} }
 
 func (adapter *RSSAdapter) Search(ctx context.Context, work SourceWork) (SourceSearchResult, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, work.WebsiteInput, nil)
@@ -28,6 +29,35 @@ func (adapter *RSSAdapter) Search(ctx context.Context, work SourceWork) (SourceS
 	if response.StatusCode != http.StatusOK {
 		return SourceSearchResult{}, fmt.Errorf("feed returned %s", response.Status)
 	}
+	body, err := readBounded(response.Body, maxResponseBytes)
+	if err != nil {
+		return SourceSearchResult{}, err
+	}
+	return parseFeed(body, work)
+}
+
+// parseFeed accepts only documents whose root element is an RSS, Atom or RDF feed.
+func parseFeed(data []byte, work SourceWork) (SourceSearchResult, error) {
+	decoder := xml.NewDecoder(bytes.NewReader(data))
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return SourceSearchResult{}, fmt.Errorf("parse feed: %w", err)
+		}
+		start, ok := token.(xml.StartElement)
+		if !ok {
+			continue
+		}
+		switch strings.ToLower(start.Name.Local) {
+		case "rss", "feed", "rdf":
+			return decodeFeed(decoder, start, work)
+		default:
+			return SourceSearchResult{}, errors.New("not a feed document")
+		}
+	}
+}
+
+func decodeFeed(decoder *xml.Decoder, start xml.StartElement, work SourceWork) (SourceSearchResult, error) {
 	var feed struct {
 		Language string `xml:"lang,attr"`
 		Channel  struct {
@@ -36,8 +66,8 @@ func (adapter *RSSAdapter) Search(ctx context.Context, work SourceWork) (SourceS
 		} `xml:"channel"`
 		Entries []feedEntry `xml:"entry"`
 	}
-	if err := xml.NewDecoder(io.LimitReader(response.Body, 2<<20)).Decode(&feed); err != nil {
-		return SourceSearchResult{}, fmt.Errorf("parse rss: %w", err)
+	if err := decoder.DecodeElement(&feed, &start); err != nil {
+		return SourceSearchResult{}, fmt.Errorf("parse feed: %w", err)
 	}
 	entries := append(feed.Channel.Items, feed.Entries...)
 	result := SourceSearchResult{Candidates: make([]CandidateArticle, 0, len(entries))}

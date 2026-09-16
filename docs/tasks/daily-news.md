@@ -6,7 +6,7 @@
 
 **Architecture:** Flutter 採 View/ViewModel + Repository/Service，Riverpod 只負責 composition 與 UI state，Dio 僅存在 remote service。Go 以 `net/http`、明確 composition root、`database/sql` + pgx adapter 與 Firebase Admin Go SDK 提供 versioned HTTP interface；Cloud Run service 提供 App API，Cloud Run Job 執行 ingestion，GitHub Actions 以 OIDC/WIF 觸發 scheduled Job。Python task 的完成紀錄是歷史證據；Go replacement phase 才是目前 backend 實作路徑。
 
-**Tech Stack:** Flutter Material 3, `flutter_riverpod`, Dio, `go_router`, `json_serializable`, Firebase Google Sign-In, Go standard library (`net/http`, `context`, `encoding/json`, `errors`, `testing/httptest`), `database/sql` + pgx adapter, Firebase Admin Go SDK, golang-migrate, PostgreSQL, Cloud Run, Secret Manager, GitHub Actions OIDC/WIF, Gemini Google Search grounding, GitHub REST API, YouTube Data API.
+**Tech Stack:** Flutter Material 3, `flutter_riverpod`, Dio, `go_router`, `json_serializable`, Firebase Google Sign-In, Go standard library (`net/http`, `context`, `encoding/json`, `errors`, `testing/httptest`), `database/sql` + pgx adapter, Firebase Admin Go SDK, golang-migrate, PostgreSQL, Cloud Run, Secret Manager, GitHub Actions OIDC/WIF, Google Custom Search JSON API, GitHub REST API, YouTube Data API.
 
 **Spec:** [每日新聞 App 需求與架構規格](../requirements/daily-news.md)
 
@@ -687,11 +687,140 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 
 - 2026-09-12：O4 Red/preflight 完成，Green 尚未開始。新增 `docs/operations/staging-smoke-test.md`，明列 WIF、公開 health、Firebase 401/403 allowlist、單一 active Run、terminal status、Attempt/citation、CRUD 與 mobile contract 的失敗判準、證據遮罩規則和執行順序。`git fetch origin main && git rev-list --left-right --count origin/main...main` 確認 `5f464ca` 已推送且為 `0 0`；GitHub Actions CI `34669133586` 與 deploy `34669133578` 均成功。Cloud Run control plane 顯示 revision `daily-news-api-00004-fqd` Ready、100% traffic、ingress all、`invokerIamDisabled: true`、default URI enabled；但兩個 service URL、八個 IPv4 edge、Google identity token 與 `gcloud run services proxy` 對 `/healthz` 均回 Google HTML 404，且 `run.googleapis.com/requests` 與 VPC Service Controls denial log 無對應項目。`gcloud run services update --default-url` 及一次 `--no-default-url`/`--default-url` 重建 URL 狀態後，observed generation 由 4 到 7，404 仍可重現。另以 `rg` 與 composition-root inspection 確認部署的 Go Job 呼叫 `Orchestrator.Run(ctx, id, nil)`，沒有 production Source Setting loader/concrete adapter，`CandidateArticle` 與 PostgreSQL schema 也沒有 citation 欄位；即使 ingress 恢復亦只能空跑，無法滿足 O4 公開來源/citation Done condition。故停止在任何 authenticated/data-mutating smoke step 之前，不勾選 Green/Verify/Commit。
 
+- 2026-09-12：R8 deploy 後，revision `daily-news-api-00005-j82` 已以 commit `819e8f7` image 取得 100% traffic，public `/healthz` 仍為未進入 revision 的 Google HTML 404。為隔離 project/region 層級問題，短期部署無秘密、無資料庫的 `daily-news-edge-probe` 到同一 project/region；其 generated `run.app` URL 回 `200`。因此 404 已確認為 `daily-news-api` service hostname registration 異常，非 Cloud Run edge、region、IAM、ingress 或 R8 image。probe 已在驗證後移除。取得使用者明確授權後，精確刪除並以同一 production image、`daily-news-api` runtime service account、兩個 Secret Manager references、`ingress: all`、public invocation、1 CPU/512 MiB/maxScale 12 重建正式 service；新 revision `daily-news-api-00001-l2z` Ready 並取得 100% traffic，但 numeric 和 canonical `run.app` `/healthz` 仍均為 Google HTML 404。startup TCP probe 成功，且 `resource.type=cloud_run_revision` 沒有 health request log。故 service recreation 已排除，O4 需 Google Cloud Support/platform 修復 hostname routing 後才能繼續。
+
+- 2026-09-12：依使用者指示嘗試建立 Google Cloud Support case。`daily-news-93f7b` 的 Support Console 顯示目前支援方案不提供 technical case，僅能「查看支援方案」；因此無法提交 case，且不會在未獲授權下購買或變更 billing/support offer。需由使用者附加合格 support plan，或由有資格的 billing/support administrator 從其帳戶建立 case，O4 才能恢復。
+
+- 2026-09-12：依使用者授權建立 `daily-news-staging-api` fallback，並發現原先將 Google HTML `/healthz` 404 判為 hostname routing fault 的結論不成立：`/` 已到達 Go mux，真正 `/v1/categories` 與 `/v1/ingestion-runs/latest` 均由 application 回 `401 application/problem+json`。Root cause tracing 顯示 `cmd/api` 將 `api.NewHandler` 覆蓋 `httpapi.NewMux`，但前者沒有掛載 health handler。Red：新增 `TestHandlerServesHealthzWithoutDatabaseOrAuthentication`，`cd backend && go test ./internal/api -run TestHandlerServesHealthzWithoutDatabaseOrAuthentication -count=1` 如預期 `status = 404, want 200` 失敗。Green：共用 `httpapi.Healthz` 並在 production `api.NewHandler` 掛載 `GET /healthz`；同一 focused test 及 `go test ./internal/api ./internal/httpapi -count=1` 通過。Verify：`cd backend && go vet ./... && go test ./... && uv run pytest tests/test_container_contract.py -q && git diff --check` 全部通過（container contract 4 passed）；commit `c737370` 已推送，GitHub CI `34678546839` 和 deploy `34678546828` 均成功。GitHub Linux amd64 image 已部署為 `daily-news-api-00002-brl`，public `GET /v1/categories` 確認為預期 401。Google Frontend 對精確 `/healthz` 仍回 HTML 404，即使 application handler 已正確掛載，故 O4 以 versioned API authentication response 驗證 external reachability。受控 Job execution `daily-news-ingestion-lr6jv`（Run ID `9281481e-3192-4c36-9314-45ea1368536e`）完成成功；唯讀 DB 查詢確認 schema migration version 3、Run `succeeded`、0 attempts/candidates（尚無使用者 Category/source）。Green/Verify/Commit 仍待 allowlisted Firebase session 的實際 Category、source、Article/citation、併發 Run 與 mobile journey。
+
+- 2026-09-12：取得使用者刪除授權後，移除短期診斷 services `daily-news-api-staging` 與 `daily-news-staging-api`；`gcloud run services list` 僅保留正式 `daily-news-api`，revision `daily-news-api-00002-brl`。cleanup 後重新呼叫正式 `/v1/categories`，仍為預期 `401 application/problem+json`。O4 仍等待 allowlisted Firebase session 才能做資料驗收。
+
+- 2026-09-12：O4 preflight 後續驗證：以 malformed Bearer 對正式 API 的 `GET /v1/categories` 與 `POST /v1/categories` 均回 `401 application/problem+json`，未造成資料寫入。mobile public base URL 的 Dart define 為 `DAILY_NEWS_API_BASE_URL=https://daily-news-api-855124405761.asia-east1.run.app/v1/`。`cd apps/mobile && flutter test` 通過（25 passed）；`flutter test -d emulator-5554 integration_test/daily_news_flow_test.dart` 通過，驗證 Android device 上的 fake-server UI journey。該 integration test 明確使用 fake API，不能取代 allowlisted Firebase 對 staging 的登入與資料流驗收。O4 仍未勾選 Green/Verify/Commit。
+
+- 2026-09-12：使用者在 iOS Simulator 點選 Google 登入後，按鈕持續 loading、未出現帳號選擇器。Root-cause inspection：iOS target bundle ID 仍為預設 `com.example.mobile`，缺少 `GoogleService-Info.plist` 與 Google OAuth callback URL scheme；Firebase Console 的 `daily-news-93f7b` General settings 更明確顯示「專案中沒有應用程式」。因此該 Firebase project 尚未註冊 Apple/Android/Web app，也沒有可供 mobile 使用的 OAuth client，真實 Firebase allowlist／Category／ingestion staging 驗收無法開始。需使用者選定 bundle ID 並授權註冊 Firebase Apple app、下載 app config、啟用/配置 Google Sign-In 後才能恢復 O4。
+
 - 2026-09-12：Deployment correction（O4 尚未完成）：在已確認 Service Ready、100% traffic、`ingress: all` 與 `allUsers` Invoker binding 後，公開 `/healthz` 仍由 Google edge 回傳 HTML 404，未到達 Go handler。Red：`cd backend && uv run pytest tests/test_container_contract.py -q` 因 manifest 未宣告 public invocation 而如預期失敗（1 failed, 3 passed）。Green：Service manifest 明確加入 `run.googleapis.com/invoker-iam-disabled: 'true'`，使 Cloud Run admission 與 API 內 Firebase Bearer-token allowlist 分工明確，並由 contract test 固定此部署不變量。Verify：`cd backend && uv run pytest tests/test_container_contract.py -q && go vet ./... && go test ./...` 通過（container contract 4 passed；所有 Go package passing）；`actionlint .github/workflows/deploy.yml`、manifest assertion 與 `git diff --check` 均通過。待使用者 push 並完成 GitHub Actions 部署後，以公開 `/healthz` 和 allowlisted Firebase smoke test 驗證，才可完成 O4。
 
 - 2026-09-12：CI correction（O4 尚未完成）：GitHub Actions run `34668466412` 顯示多個 PostgreSQL integration package 在 migration 前取得 `read: connection reset by peer`；各測試僅以 container 內 Unix socket 的 `pg_isready` 判定 ready，尚未確認 runner 經 Docker published TCP port 的 pgx 連線。Green：各 integration helper 在 migration 前以相同 `platform.OpenDB`／`PingContext` 對實際 PostgreSQL URL 重試最多 30 秒；成功後立即關閉 readiness pool。Verify：`cd backend && gofmt -w internal/platform/migrations_test.go internal/category/store_integration_test.go internal/news/store_integration_test.go internal/ingestion/runs_integration_test.go && GOFLAGS=-p=1 go test -count=1 ./...` 通過，所有 Go package passing；待下一次 GitHub Actions CI 實際驗證。
 
+- 2026-09-12：使用者確認正式 iOS bundle ID `com.allenljf.dailynews` 與 Firebase Google Sign-In 支援信箱後，已在 `daily-news-93f7b` 註冊 Apple app，啟用 Google provider，並將公開名稱設為 `Daily News`。依 Firebase 產生的設定加入 `GoogleService-Info.plist`、Runner resource、Google OAuth callback URL scheme，且將 Debug／Profile／Release 的 Runner bundle ID 改為正式值；Flutter bootstrap 現在於 `runApp` 前執行 `Firebase.initializeApp()`。驗證：`cd apps/mobile && dart format lib/main.dart && plutil -lint ios/Runner/Info.plist ios/Runner/GoogleService-Info.plist && flutter test`（25 passed）；`flutter build ios --simulator --debug` 與 `flutter run -d 0A818455-5B3B-44A3-A7CB-9AF6681297A6 --no-resident --dart-define=DAILY_NEWS_API_BASE_URL=https://daily-news-api-855124405761.asia-east1.run.app/v1/` 成功。iPhone 17 Simulator 顯示可點擊的「使用 Google 登入」，不再卡在 loading。O4 仍待使用者完成 allowlisted Google 帳戶登入，以及真實 Category、source、ingestion、Article/citation 和併發 Run 驗收。
+
+- 2026-09-12：allowlisted iOS session 登入後，Cloud Run 對 `GET /v1/categories` 連續回 `200`，但 mobile 顯示「無法讀取新聞類別」。根因是空資料庫的 Go `Store.List` 回傳 nil slice，JSON 為 `null`，違反 OpenAPI 的 array response 並被 Flutter decoder 拒絕。Red：新增真實 PostgreSQL + authenticated handler test，`cd backend && go test ./internal/category -run TestHandlerListsNoCategoriesAsJSONArray -count=1` 如預期失敗：`"null\\n"`，預期 `"[]\\n"`。Green：初始化空 `Response` slice，使空清單編碼為 `[]`。Verify：`cd backend && go vet ./... && go test ./... && git diff --check` 通過；commit `b7bb1fd` 已推送，GitHub Deploy `34695495956` 成功。部署後 iPhone 17 Simulator 點選「重試」，原錯誤改為正常的「新增新聞類別」空狀態。O4 仍待實際建立 Category/source、Run、Article/citation、併發 Run 驗收。
+
 ---
+
+### Task 1: Persist and expose Category content language
+
+**Depends on:** R8
+**Parallel:** no — establishes the stored Category contract before ingestion and Flutter consume it.
+**Files:** Create `backend/migrations/000004_category_content_language.{up,down}.sql`; modify `backend/internal/category/{category.go,handler_test.go,store_integration_test.go}`, `docs/contracts/daily-news.openapi.json`, `docs/requirements/daily-news.md`, and this task record.
+
+- [x] **Step 1: Write the failing test** — prove an omitted request gives `zh-Hant`, explicit `en` gives 422, and the migrated table has a default/check constraint.
+- [x] **Step 2: Verify RED** — `cd backend && go test ./internal/category -run 'ContentLanguage|StorePreserves' -count=1` failed to compile because `Response.ContentLanguage` did not exist.
+- [x] **Step 3: Implement GREEN** — migration 4 adds `text NOT NULL DEFAULT 'zh-Hant' CHECK (content_language = 'zh-Hant')`; Category requests normalise omissions, reject explicit unsupported values, and Store list/create/update persists the field.
+- [x] **Step 4: Verify GREEN** — ran `cd backend && gofmt -w internal/category && go test ./internal/category -count=1`; all category tests passed.
+- [x] **Step 5: Commit** — intentionally not committed because this shared workspace contains unrelated user changes and the delegated task explicitly prohibits a commit.
+
+**完成紀錄：**
+
+- 2026-09-15：Red：新增 handler/store integration contracts後，`cd backend && go test ./internal/category -run 'ContentLanguage|StorePreserves' -count=1` 以 `Response.ContentLanguage undefined` 編譯失敗，確認 field、migration 與 SQL 尚未實作。Green：新增 PostgreSQL migration `000004_category_content_language`，其 `NOT NULL DEFAULT 'zh-Hant'` 回填既有 rows 並以 check constraint 限制唯一支援值；Category `Request`/`Response`、strict JSON validation 和 Store list/create/update 現在攜帶欄位。HTTP omission 正規化為 `zh-Hant`，明確傳送 `en` 回既有 422 Problem Details。OpenAPI response 將欄位標為 required，create/update request 將其列為可省略且 default 為 `zh-Hant`，以支援舊 Flutter client。驗證：focused Red 如上；`cd backend && go test ./internal/category -run 'ContentLanguage|StorePreserves' -count=1` 為 `ok`；`cd backend && gofmt -w internal/category && go test ./internal/category -count=1 && go vet ./... && go test ./... && git diff --check` 全部通過。PostgreSQL tests 以 disposable `postgres:16-alpine` 驗證 Store omission/response/list persistence、database default 和 unsupported `en` 的 constraint rejection。因共享工作樹已有不相關 mobile、staging 文件和 task-record 修改，依指示未 commit。
+
+### Task 2: Carry language into ingestion and reject known non-Traditional candidates
+
+**Depends on:** Task 1
+**Parallel:** no — consumes the persisted Category value.
+**Files:** Modify `backend/internal/ingestion/{orchestrator.go,planner.go,planner_integration_test.go,rss.go,rss_test.go}` and this task record.
+
+- [x] **Step 1: Write failing tests** — assert planned work contains `zh-Hant`; explicit `zh-Hans` RSS entry metadata is rejected while `zh-Hant` is retained.
+- [x] **Step 2: Verify RED** — `cd backend && go test ./internal/ingestion -run 'WorkPlanner|Traditional' -count=1` first failed to compile because `SourceWork.ContentLanguage` did not exist; after the plumbing-only change, it failed with two candidates instead of one because the adapter did not gate language.
+- [x] **Step 3: Implement GREEN** — select/scan `categories.content_language` into `SourceWork`; RSS/Atom accepts unlabelled entries but rejects entries whose explicit language metadata differs from the requested value. No source text is transformed.
+- [x] **Step 4: Verify GREEN** — `cd backend && gofmt -w internal/ingestion && go test ./internal/ingestion -count=1` passed; `cd backend && go vet ./... && go test ./... && git diff --check` passed.
+- [x] **Step 5: Commit** — intentionally not committed because this shared dirty workspace and delegated task prohibit commits.
+
+**完成紀錄：**
+
+- 2026-09-15：Red：planner contract 因缺少 `SourceWork.ContentLanguage` 失敗；新增欄位/SQL select 後，RSS contract 以 `article count = 2, want 1` 失敗，證明明確 `zh-Hans` metadata 尚未被過濾。Green：WorkPlanner 現在選取並 scan migration 4 持久化的 `categories.content_language`；RSS/Atom 在 candidate/item、channel 或 feed 層找到第一個明確語言 metadata 時，僅接受與 `SourceWork.ContentLanguage` case-insensitively 相符的值。metadata 缺失保持 eligible，因現有 adapter 沒有值得信賴的繁體中文文字 classifier；沒有做文字轉換。驗證：`cd backend && gofmt -w internal/ingestion && go test ./internal/ingestion -count=1` 通過；`cd backend && go vet ./... && go test ./... && git diff --check` 通過。未修改 Flutter、Category contract 或 migrations；未 commit。
+
+### Task 4: Category content-language full verification record
+
+**Depends on:** Task 1, Task 2, and the linked Flutter implementation.
+**Files:** Modify this task record only.
+
+- [x] **Step 1: Run backend verification** — `cd backend && go vet ./... && go test ./...` passed.
+- [ ] **Step 2: Run Flutter verification** — `flutter analyze`, `flutter test`, and the feature-scoped `--diff HEAD` rules check passed, but the required full command did not complete because the host `python3` has no `yaml` module for `check-rules.py`.
+- [x] **Step 3: Validate contract and diff** — `python3 -m json.tool docs/contracts/daily-news.openapi.json >/dev/null && git diff --check` passed.
+- [x] **Step 4: Record the verification evidence** — recorded below; the language feature is not marked fully verified while the required rules check remains blocked.
+- [x] **Step 5: Commit** — intentionally not committed in the shared dirty workspace.
+
+**完成紀錄：**
+
+- 2026-09-15：`cd backend && go vet ./... && go test ./...` exit 0；`go test` 的所有 package 通過（含 `internal/category` 與 `internal/ingestion`）。要求的完整 Flutter command `cd apps/mobile && flutter analyze && flutter test && cd ../.. && python3 flutter-dev-guide/tools/check-rules.py --all` 先完成 `flutter analyze`（`No issues found!`）與 `flutter test`（`33` passed），但最後的 checker 因 host `python3` 缺少 `yaml` module 以 `ModuleNotFoundError` exit 1。以暫時的 PyYAML environment 重試 `uv run --with pyyaml python flutter-dev-guide/tools/check-rules.py --all` 後，checker 會遞迴掃描 gitignored 的 `apps/mobile/build/ios/SourcePackages/` Firebase package fixtures，並報出其測試 delay／fixture key 規則；這些不是本功能檔案，且未修改或刪除。Feature-scoped `uv run --with pyyaml python flutter-dev-guide/tools/check-rules.py --diff HEAD` exit 0、無 violations；它只涵蓋 HEAD 以來的 tracked 變更，不能取代仍失敗的 required `--all` command。`python3 -m json.tool docs/contracts/daily-news.openapi.json >/dev/null && git diff --check` exit 0。未執行 staging 或外部驗證，未 commit，並保留共享工作樹既有未提交變更。
+
+### Task 3: Delete a Category from its news list
+
+**Depends on:** F4, F5
+**Parallel:** no — reuses the Category deletion contract and adds its Category-detail entry point.
+**Files:** Modify `apps/mobile/lib/features/categories/{application/category_controller.dart,data/category_{remote_service,repository}.dart}`, `apps/mobile/lib/features/news/presentation/news_list_screen.dart`, `apps/mobile/lib/l10n/app_zh.arb`, `apps/mobile/test/features/news/news_list_test.dart`, `docs/requirements/daily-news.md`, and this task record.
+
+- [x] **Step 1: Write the failing test** — prove the news-list app bar exposes an accessible Category delete action; cancellation performs no deletion, while confirmation calls the Category repository, returns to the home route, and explains that shared Articles are retained.
+- [x] **Step 2: Verify RED** — `cd apps/mobile && flutter test test/features/news/news_list_test.dart` fails because the Category delete command and app-bar confirmation flow do not exist.
+- [x] **Step 3: Implement GREEN** — wire `DELETE /v1/categories/{id}` through the existing Category remote service, repository, and controller; add localized confirmation/failure strings and the app-bar delete icon. On successful deletion, refresh Category state and navigate home; on failure, retain the list and show its error state.
+- [x] **Step 4: Verify GREEN** — `cd apps/mobile && flutter analyze && flutter test test/features/news/news_list_test.dart && flutter test`.
+- [x] **Step 5: Verify guide rules and diff** — `uv run --with pyyaml python flutter-dev-guide/tools/check-rules.py --files apps/mobile/lib/features/categories/application/category_controller.dart apps/mobile/lib/features/categories/data/category_remote_service.dart apps/mobile/lib/features/categories/data/category_repository.dart apps/mobile/lib/features/news/presentation/news_list_screen.dart apps/mobile/test/features/news/news_list_test.dart && git diff --check`.
+- [x] **Step 6: Commit** — did not commit because the shared worktree contains unrelated changes.
+
+**完成紀錄：**
+
+- 2026-09-16：需求確認為刪除 Category 時停用其 Source Setting／後續擷取並移除 Category Article 關聯，保留仍被其他 Category 引用的 Article；更新需求規格以將入口定在 Category 新聞列表右上角。Red：新增 Router-backed widget test 後，`cd apps/mobile && flutter test test/features/news/news_list_test.dart` 以找不到 `Icons.delete_outline` 失敗，確認入口尚不存在。Green：Category remote service、repository 與 controller 現在沿用既有 `DELETE /v1/categories/{id}`；新聞列表 AppBar 提供有本地化 tooltip 的刪除按鈕、確認 dialog、取消分支、失敗 SnackBar，以及成功後重新讀取 Category state 並導航至首頁。測試覆蓋文章保留說明、取消不刪除、確認刪除、state reload 與回首頁；更新其他 fake repository 以符合擴充的 contract。驗證：`cd apps/mobile && flutter analyze && flutter test test/features/news/news_list_test.dart && flutter test` 通過（focused 6 passed，full 34 passed）；`uv run --with pyyaml python flutter-dev-guide/tools/check-rules.py --files ... && git diff --check` exit 0、無 violations。未 commit，因 shared worktree 包含既有無關修改。
+
+### Task 5: Route Category deletion through the API composition root
+
+**Depends on:** Task 3
+**Parallel:** no — repairs the deployed API path used by the new Flutter control.
+**Files:** Modify `backend/internal/api/{server.go,server_test.go}` and this task record.
+
+- [x] **Step 1: Reproduce RED** — add an authenticated-route contract for `DELETE /v1/categories/{id}`; `cd backend && go test ./internal/api -run TestHandlerRoutesEveryV1FamilyThroughSharedAuthentication -count=1` returns 404 instead of 401.
+- [x] **Step 2: Implement GREEN** — route every `/v1/categories/{id}` request to the Category handler, preserving `/news` delegation to the Article handler.
+- [x] **Step 3: Verify GREEN** — `cd backend && gofmt -w internal/api/server.go internal/api/server_test.go && go test ./internal/api -run TestHandlerRoutesEveryV1FamilyThroughSharedAuthentication -count=1 && go vet ./... && go test ./... && git diff --check`.
+- [ ] **Step 4: Deploy and verify production** — publish the isolated backend fix through the existing deploy workflow, then confirm a Category DELETE no longer returns 404.
+
+**完成紀錄：**
+
+- 2026-09-16：Cloud Run request logs supplied the production repro: `DELETE /v1/categories/{id}` repeatedly returned 404 while `GET /v1/categories/{id}/news` for the same id returned 200. The deployed revision `daily-news-api-00007-4xp` uses image commit `37b7f5b`, which contains the Category DELETE handler. Red added the DELETE request to the composition-root authentication contract; it failed with `status = 404, want 401`, proving the outer router never reached that handler. Green broadens only the Category path dispatch; `/news` remains delegated to the Article handler. Focused test, `go vet ./...`, full `go test ./...`, and `git diff --check` all passed. Production deployment and the post-deploy DELETE check are pending.
+
+### Task 6: Add English as a Category content language
+
+**Depends on:** Task 1, Task 2
+**Parallel:** no — expands the persisted Category contract and its Flutter selector together.
+**Files:** Create `backend/migrations/000005_category_english_content_language.{up,down}.sql`; modify `backend/internal/category/{category.go,handler_test.go,store_integration_test.go}`, `backend/internal/ingestion/rss_test.go`, `apps/mobile/lib/features/categories/{data/category.dart,presentation/category_settings_sheet.dart}`, `apps/mobile/lib/l10n/{app_zh.arb,app_localizations.dart,app_localizations_zh.dart}`, `apps/mobile/test/features/categories/category_sheet_test.dart`, `docs/contracts/daily-news.openapi.json`, `docs/requirements/daily-news.md`, and this task record.
+
+- [x] **Step 1: Write failing tests** — prove the Category validation/store and Flutter selector accept `en` for a new Category.
+- [x] **Step 2: Verify RED** — focused Category test did not compile because `EnglishContentLanguage` was absent; the Flutter widget test failed because no `英文` menu item existed.
+- [x] **Step 3: Implement GREEN** — allow only `zh-Hant` and `en`, expand the database constraint in migration 5, expose both OpenAPI enum values, and add the localized English selector option; keep `zh-Hant` as the omission default.
+- [x] **Step 4: Verify GREEN** — focused and full backend/Flutter checks, guide rules, contract validation, and diff check passed.
+- [x] **Step 5: Commit** — intentionally not committed because the shared worktree contains unrelated changes.
+
+**完成紀錄：**
+
+- 2026-09-16：Red：`cd backend && go test ./internal/category -run 'ValidateAcceptsEnglishContentLanguage|StorePreservesDefaultContentLanguageAndDatabaseConstraint' -count=1` 因 `EnglishContentLanguage` 尚未定義而編譯失敗；`cd apps/mobile && flutter test test/features/categories/category_sheet_test.dart --plain-name 'English content language can be selected for a new Category'` 因沒有 `英文` 下拉選項失敗。Green：新增 migration `000005_category_english_content_language`，將 `categories.content_language` 約束擴為 `zh-Hant` 與 `en`，維持 omitted request／既有資料的 `zh-Hant` 預設；Category validation、OpenAPI contract、Flutter value object 與本地化 selector 一併支援 `en`。RSS regression test 確認英文 Category 只保留標示 `en` 的候選。驗證：`cd backend && go vet ./... && go test ./... -count=1` 通過；`cd apps/mobile && flutter analyze && flutter test` 通過（35 passed）；`uv run --with pyyaml python flutter-dev-guide/tools/check-rules.py --files apps/mobile/lib/features/categories/data/category.dart apps/mobile/lib/features/categories/presentation/category_settings_sheet.dart apps/mobile/test/features/categories/category_sheet_test.dart`、`python3 -m json.tool docs/contracts/daily-news.openapi.json >/dev/null` 與 `git diff --check` 均 exit 0。未 commit，避免混入共享工作樹的無關變更。
+
+### Task 7: Support homepage Source Settings with feed discovery and web search
+
+**Depends on:** R8
+**Parallel:** no — changes the Job's source-adapter composition while retaining the existing Article write boundary.
+**Files:** Create `backend/internal/ingestion/{safehttp.go,web.go,googlesearch.go,meta.go,router.go}` and their `_test.go` files; modify `backend/internal/ingestion/rss.go`, `backend/cmd/daily-news-job/{main.go,main_test.go}`, `backend/.env.example`, `infra/cloud-run/job.yaml`, `infra/docs/secret-inventory.md`, `docs/requirements/daily-news.md`, `docs/superpowers/specs/2026-09-16-web-source-adapters-design.md`, and this task record.
+
+- [x] **Step 1: Write failing tests** — prove an HTML homepage discovers a relative same-host RSS/Atom feed; cross-host, loopback/private, invalid and oversized discovery responses are rejected; a homepage without a feed delegates to a fake search adapter; off-host, malformed and over-limit Google Custom Search candidates are rejected; a missing search credential is isolated; YouTube sends a composed query with `type=video`, `maxResults=10` and `relevanceLanguage` and maps public video URLs to canonical URL + citation; the Job composition routes hosts through a composite adapter instead of treating every HTTP(S) URL as RSS.
+- [x] **Step 2: Verify RED** — `cd backend && go test ./internal/ingestion ./cmd/daily-news-job -run 'WebSource|GoogleSearch|YouTube|HostRouter|JobComposition' -count=1` fails because the composite, discovery and platform adapters do not exist.
+- [x] **Step 3: Implement GREEN** — add a bounded, SSRF-safe fetcher; compose direct RSS, same-host feed discovery and Google Custom Search JSON API behind `SourceAdapter`; add the YouTube `search.list` keyword adapter; route Facebook/Instagram/Threads to a restricted Meta boundary that never reaches the general search adapter.
+- [x] **Step 4: Verify GREEN locally** — `cd backend && gofmt -w ... && go vet ./... && go test ./...`, container build verification, and `git diff --check`.
+- [x] **Step 5: Add Secret Manager runtime configuration** — read `GOOGLE_CSE_API_KEY`/`GOOGLE_CSE_ID`/`GOOGLE_CSE_DATE_RESTRICT`/`YOUTUBE_API_KEY` from the Job environment, declare the Secret Manager references in `infra/cloud-run/job.yaml`, and document the variable names and acquisition locations without values.
+- [ ] **Step 6: Redacted staging homepage Source Setting Run** — after the secrets exist and the image is deployed, run one homepage-only disposable Source Setting and record only IDs and aggregate counts. Deferred until the user creates the secrets.
+- [x] **Step 7: Record and commit** — check off the steps, add exact evidence below, and commit only verified task files if the shared worktree permits.
+
+**完成紀錄：**
+
+- 2026-09-16：Red：新增 `safehttp_test.go`、`web_test.go`、`googlesearch_test.go`、`youtube_test.go`、`router_test.go` 及 Job composition 與 container contract 斷言後，`cd backend && go test ./internal/ingestion ./cmd/daily-news-job -run 'WebSource|GoogleSearch|YouTube|HostRouter|JobComposition' -count=1` 因 `NewGoogleSearchAdapter`、`ErrWebSearchNotConfigured`、`NewHostRouter` 等尚未定義而 build failed，`TestJobCompositionUsesCompositeSourceAdapter` 亦以 `job composition does not build the composite web source adapter` 失敗。Green：新增 `safehttp.go`（15s timeout、2 MiB limit、redirect cap 5、dial 前拒絕 loopback/link-local/private/ULA/multicast）、`web.go`（直接 feed → `rel="alternate"` 同 host/subdomain 發現 → web search fallback）、`googlesearch.go`（Custom Search JSON API、`key`/`cx`/`q`/`num=10`/`dateRestrict`、同 host 過濾、`pagemap.metatags` 取 `published_at`、缺憑證回 `web search is not configured`）、`meta.go`（Facebook/Instagram/Threads 未來邊界，回 `ErrMetaAdapterUnavailable` 且絕不 fallback 至一般搜尋）、`router.go`（YouTube → YouTube adapter、Meta hosts → 受限邊界、其餘 → web），並重構 `rss.go` 抽出 `parseFeed`（只接受 root 為 rss/feed/rdf）。`main.go` 改以 `NewHostRouter`/`NewWebSourceAdapter`/`NewGoogleSearchAdapter` 組合。Verify：`cd backend && gofmt -l . && go vet ./...` 無輸出；`cd backend && GOFLAGS=-p=1 go test -count=1 ./...` 全部 package `ok`（含 PostgreSQL integration）；`cd backend && uv run pytest tests/test_container_contract.py -q` 為 `5 passed`；container build 成功，`docker run --rm daily-news-backend:task7 /app/daily-news-job` 在缺 `RUN_ID` 時 exit 2、`id -u` 為 100；`git diff --check` exit 0。需求變更：使用者決定以 Google Custom Search JSON API 取代 Gemini（回應舊資料問題）、且 Threads keyword search 先不做，因此 `gemini*.go` 與 `threads*.go` 已刪除，`GEMINI_API_KEY`、`GEMINI_MODEL`、`THREADS_ACCESS_TOKEN` 已自部署設定與文件移除；Threads/Facebook/Instagram host 改由受限 Meta 邊界處理。環境限制：本機與 Docker build network 被 ISP 攔截 `proxy.golang.org`（TLS 憑證不符），因此以同一 Dockerfile 內容加 `ENV GOPROXY=https://goproxy.cn,direct` 的臨時檔案完成容器建置驗證；checked-in `backend/Dockerfile` 未修改。Step 6 需先由使用者建立 Secret Manager secrets 並部署，尚未執行；未 commit，保留共享工作樹既有無關變更。
 
 ## Plan Self-Review
 

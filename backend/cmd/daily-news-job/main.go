@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/signal"
 	"strings"
@@ -57,7 +56,7 @@ func run(ctx context.Context, runID string, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "acquire ingestion run:", err)
 		return exitFailure
 	}
-	work, err := ingestion.NewWorkPlanner(database, ingestion.NewRSSAdapter(http.DefaultClient)).Load(ctx)
+	work, err := ingestion.NewWorkPlanner(database, buildSourceAdapter()).Load(ctx)
 	if err != nil {
 		fmt.Fprintln(stderr, "plan ingestion work:", err)
 		return exitFailure
@@ -68,4 +67,23 @@ func run(ctx context.Context, runID string, stderr io.Writer) int {
 	}
 
 	return 0
+}
+
+// buildSourceAdapter composes the bounded web adapter with the platform
+// adapters. A missing credential disables only its own Source Setting.
+func buildSourceAdapter() ingestion.SourceAdapter {
+	fetcher := ingestion.NewSafeFetcher()
+	search := ingestion.NewGoogleSearchAdapter(
+		fetcher,
+		os.Getenv("GOOGLE_CSE_API_KEY"),
+		os.Getenv("GOOGLE_CSE_ID"),
+		os.Getenv("GOOGLE_CSE_DATE_RESTRICT"),
+	)
+	return ingestion.NewHostRouter(
+		ingestion.NewWebSourceAdapter(fetcher, search),
+		ingestion.NewYouTubeAdapter(fetcher, os.Getenv("YOUTUBE_API_KEY")),
+		ingestion.NewMetaAdapter("Facebook"),
+		ingestion.NewMetaAdapter("Instagram"),
+		ingestion.NewMetaAdapter("Threads"),
+	)
 }
