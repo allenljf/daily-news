@@ -136,6 +136,35 @@ func TestStorePreservesFeedAndArticleLifecycleParity(t *testing.T) {
 	}
 }
 
+func TestStoreKeepsArticlesAfterSourceSettingReplacement(t *testing.T) {
+	database := newsIntegrationDatabase(t)
+	defer database.Close()
+	ctx := context.Background()
+	categoryID, sourceID, _ := seedCategory(t, database)
+	articleID := insertArticle(t, database, categoryID, sourceID, 1, time.Now().AddDate(0, 0, 1), nil)
+
+	// A Category edit soft-deletes its existing Source Settings and inserts new
+	// ones; existing Category Articles must remain visible.
+	if _, err := database.Exec(`UPDATE source_settings SET deleted_at=now() WHERE id=$1`, sourceID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`INSERT INTO source_settings (id,category_id,label,website_input,kind,position) VALUES ($1,$2,'New','https://new.example','website',0)`, uuid.New(), categoryID); err != nil {
+		t.Fatal(err)
+	}
+
+	store := NewStore(database)
+	page, err := store.List(ctx, categoryID, "", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) != 1 || page.Items[0].ID != articleID {
+		t.Fatalf("items = %#v", page.Items)
+	}
+	if _, err := store.Detail(ctx, categoryID, articleID); err != nil {
+		t.Fatalf("Detail() error = %v", err)
+	}
+}
+
 func assertNewsJSONFields(t *testing.T, value map[string]any, detail bool) {
 	t.Helper()
 	fields := []string{"id", "title", "summary", "canonical_url", "published_at", "inserted_at", "expires_at", "source_tag_id", "source_tag_label"}

@@ -84,7 +84,10 @@ func (store *Store) List(ctx context.Context, categoryID uuid.UUID, cursor strin
 	if !exists {
 		return page{}, ErrNotFound
 	}
-	query := `SELECT a.id,a.title,a.summary,a.canonical_url,a.published_at,ca.inserted_at,a.expires_at,ss.id,ss.label FROM category_articles ca JOIN articles a ON a.id=ca.article_id JOIN source_settings ss ON ss.id=ca.source_setting_id WHERE ca.category_id=$1 AND ca.deleted_at IS NULL AND a.deleted_at IS NULL AND (a.expires_at IS NULL OR a.expires_at > now()) AND ss.deleted_at IS NULL`
+	// Category Article visibility follows the Category and Article lifecycle.
+	// A Category edit replaces its Source Settings, so the association must not
+	// disappear when the original Source Setting row is soft-deleted.
+	query := `SELECT a.id,a.title,a.summary,a.canonical_url,a.published_at,ca.inserted_at,a.expires_at,ss.id,ss.label FROM category_articles ca JOIN articles a ON a.id=ca.article_id JOIN source_settings ss ON ss.id=ca.source_setting_id WHERE ca.category_id=$1 AND ca.deleted_at IS NULL AND a.deleted_at IS NULL AND (a.expires_at IS NULL OR a.expires_at > now())`
 	args := []any{categoryID}
 	if sourceTag != nil {
 		args = append(args, *sourceTag)
@@ -130,7 +133,7 @@ func (store *Store) List(ctx context.Context, categoryID uuid.UUID, cursor strin
 
 func (store *Store) Detail(ctx context.Context, categoryID, articleID uuid.UUID) (detail, error) {
 	var value detail
-	err := store.db.QueryRowContext(ctx, `SELECT a.id,a.title,a.summary,a.canonical_url,a.published_at,ca.inserted_at,a.expires_at,ss.id,ss.label,a.first_seen_at FROM category_articles ca JOIN articles a ON a.id=ca.article_id JOIN source_settings ss ON ss.id=ca.source_setting_id WHERE ca.category_id=$1 AND ca.article_id=$2 AND ca.deleted_at IS NULL AND a.deleted_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now()) AND ss.deleted_at IS NULL`, categoryID, articleID).Scan(&value.ID, &value.Title, &value.Summary, &value.CanonicalURL, &value.PublishedAt, &value.InsertedAt, &value.ExpiresAt, &value.SourceTagID, &value.SourceTagLabel, &value.FirstSeenAt)
+	err := store.db.QueryRowContext(ctx, `SELECT a.id,a.title,a.summary,a.canonical_url,a.published_at,ca.inserted_at,a.expires_at,ss.id,ss.label,a.first_seen_at FROM category_articles ca JOIN articles a ON a.id=ca.article_id JOIN source_settings ss ON ss.id=ca.source_setting_id WHERE ca.category_id=$1 AND ca.article_id=$2 AND ca.deleted_at IS NULL AND a.deleted_at IS NULL AND (a.expires_at IS NULL OR a.expires_at>now())`, categoryID, articleID).Scan(&value.ID, &value.Title, &value.Summary, &value.CanonicalURL, &value.PublishedAt, &value.InsertedAt, &value.ExpiresAt, &value.SourceTagID, &value.SourceTagLabel, &value.FirstSeenAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return detail{}, ErrNotFound
 	}

@@ -822,6 +822,35 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 
 - 2026-09-16：Red：新增 `safehttp_test.go`、`web_test.go`、`googlesearch_test.go`、`youtube_test.go`、`router_test.go` 及 Job composition 與 container contract 斷言後，`cd backend && go test ./internal/ingestion ./cmd/daily-news-job -run 'WebSource|GoogleSearch|YouTube|HostRouter|JobComposition' -count=1` 因 `NewGoogleSearchAdapter`、`ErrWebSearchNotConfigured`、`NewHostRouter` 等尚未定義而 build failed，`TestJobCompositionUsesCompositeSourceAdapter` 亦以 `job composition does not build the composite web source adapter` 失敗。Green：新增 `safehttp.go`（15s timeout、2 MiB limit、redirect cap 5、dial 前拒絕 loopback/link-local/private/ULA/multicast）、`web.go`（直接 feed → `rel="alternate"` 同 host/subdomain 發現 → web search fallback）、`googlesearch.go`（Custom Search JSON API、`key`/`cx`/`q`/`num=10`/`dateRestrict`、同 host 過濾、`pagemap.metatags` 取 `published_at`、缺憑證回 `web search is not configured`）、`meta.go`（Facebook/Instagram/Threads 未來邊界，回 `ErrMetaAdapterUnavailable` 且絕不 fallback 至一般搜尋）、`router.go`（YouTube → YouTube adapter、Meta hosts → 受限邊界、其餘 → web），並重構 `rss.go` 抽出 `parseFeed`（只接受 root 為 rss/feed/rdf）。`main.go` 改以 `NewHostRouter`/`NewWebSourceAdapter`/`NewGoogleSearchAdapter` 組合。Verify：`cd backend && gofmt -l . && go vet ./...` 無輸出；`cd backend && GOFLAGS=-p=1 go test -count=1 ./...` 全部 package `ok`（含 PostgreSQL integration）；`cd backend && uv run pytest tests/test_container_contract.py -q` 為 `5 passed`；container build 成功，`docker run --rm daily-news-backend:task7 /app/daily-news-job` 在缺 `RUN_ID` 時 exit 2、`id -u` 為 100；`git diff --check` exit 0。需求變更：使用者決定以 Google Custom Search JSON API 取代 Gemini（回應舊資料問題）、且 Threads keyword search 先不做，因此 `gemini*.go` 與 `threads*.go` 已刪除，`GEMINI_API_KEY`、`GEMINI_MODEL`、`THREADS_ACCESS_TOKEN` 已自部署設定與文件移除；Threads/Facebook/Instagram host 改由受限 Meta 邊界處理。環境限制：本機與 Docker build network 被 ISP 攔截 `proxy.golang.org`（TLS 憑證不符），因此以同一 Dockerfile 內容加 `ENV GOPROXY=https://goproxy.cn,direct` 的臨時檔案完成容器建置驗證；checked-in `backend/Dockerfile` 未修改。Step 6 需先由使用者建立 Secret Manager secrets 並部署，尚未執行；未 commit，保留共享工作樹既有無關變更。
 
+### Task 8: Keep Category Articles visible after Source Setting replacement
+
+**Depends on:** R4, Task 7
+**Parallel:** no — repairs the News read model used by the Flutter list and detail.
+**Files:** Modify `backend/internal/news/{news.go,store_integration_test.go}` and this task record.
+
+- [x] **Step 1: Write the failing test** — soft-delete a Category's Source Setting (as a Category edit does) and assert its existing Category Articles still appear in `List` and `Detail`.
+- [x] **Step 2: Verify RED** — `cd backend && go test ./internal/news -run TestStoreKeepsArticlesAfterSourceSettingReplacement -count=1` failed with `items = []news.listItem{}` against the old query.
+- [x] **Step 3: Implement GREEN** — the News list/detail queries no longer require `source_settings.deleted_at IS NULL`; Category Article visibility follows the Category and Article lifecycle instead of the current Source Setting row.
+- [x] **Step 4: Verify GREEN** — `cd backend && gofmt -l . && go vet ./... && GOFLAGS=-p=1 go test -count=1 ./...` passed for every package.
+- [ ] **Step 5: Commit and deploy** — commit the verified fix and publish it so the existing Articles become visible again.
+
+**完成紀錄：**
+
+- 2026-09-16：使用者回報「編輯 Category 後新聞全部不見」。根因：`category.Store.Update` 會 soft delete 既有 `source_settings` 再插入新列（新 id），但文章列表／詳情的 SQL 內含 `AND ss.deleted_at IS NULL`，因此任何 Category 編輯都會讓既有 `category_articles` 從 Flutter 列表與詳情消失（`backend/internal/news/news.go:87`、`:133`）。Red：`git stash` 只還原 `news.go` 後，`cd backend && go test ./internal/news -run TestStoreKeepsArticlesAfterSourceSettingReplacement -count=1` 以 `items = []news.listItem{}` 失敗，確認查詢條件即為成因。Green：移除兩處 `ss.deleted_at IS NULL`，讓 Category Article 的可見性只受 Category、Category Article 與 Article 的 soft delete／到期影響；同一 focused test 通過。Verify：`cd backend && gofmt -l . && go vet ./... && GOFLAGS=-p=1 go test -count=1 ./...` 全部 package `ok`。未修改 OpenAPI 或 Flutter contract。Step 5 尚未 commit／部署。
+
+### Task 9: Decide Category content-language filtering for feed entries
+
+**Depends on:** Task 2, Task 6
+**Files:** Modify `backend/internal/ingestion/rss.go` and its tests if the decision is to relax the filter; otherwise no code change.
+
+- [ ] **Step 1: Decide** — choose between (a) keep strict filtering and set English sources to the `en` Category language, or (b) only reject entries whose own explicit language metadata conflicts, ignoring channel/feed-level language, or (c) stop filtering entirely.
+- [ ] **Step 2: Implement and verify** — update the adapter and its tests if the decision changes behavior.
+
+**完成紀錄：**
+
+- 2026-09-16：待使用者決定。目前 `matchesContentLanguage` 會把 channel 或 feed 層的 `<language>` 當成每個 entry 的語言，因此 `zh-Hant` Category 對宣稱 `en` 的 feed 會全部丟棄。
+
+
 ## Plan Self-Review
 
 | Spec requirement | Covered by |
