@@ -127,7 +127,8 @@ flutter-dev-guide/
 2. **搜尋關鍵字**文字輸入；可留空，留空時以 Category 名稱作為查詢語意。
 3. **搜尋網站**：初始顯示一個可編輯的「未指定網站」文字欄位，代表一般公開網頁搜尋；旁邊有新增按鈕。每次點擊新增按鈕，開啟 dialog 讓使用者輸入網站名稱或 URL；確認後新增一個可編輯的 Source Setting 欄位。空白欄位不保存。
 4. **其他特殊需求**多行文字輸入；可留空。
-5. **儲存設定**按鈕；送出 `POST /v1/categories` 或既有 Category 的 `PATCH`。
+5. **內容語言**選擇器；目前唯一選項是「繁體中文」（`zh-Hant`），新增與既有 Category 預設皆為此值。
+6. **儲存設定**按鈕；送出 `POST /v1/categories` 或既有 Category 的 `PATCH`。
 
 輸入錯誤在欄位旁顯示；儲存中不可重複提交；成功後關閉 Bottom Sheet 並刷新首頁。Category 的編輯與刪除放在其設定入口；刪除 Category 不刪除仍被其他 Category 引用的 Article。
 
@@ -154,7 +155,7 @@ IngestionRun 1 ─── * IngestionAttempt
 
 | 實體 | 關鍵欄位 |
 |---|---|
-| `categories` | id、name、search_keywords、special_requirements、created_at、updated_at、deleted_at |
+| `categories` | id、name、search_keywords、special_requirements、content_language（僅 `zh-Hant`，預設值）、created_at、updated_at、deleted_at |
 | `source_settings` | id、category_id、label、website_input、normalized_host、kind、position、created_at、deleted_at |
 | `articles` | id、title、normalized_title_hash、canonical_url、canonical_url_hash、summary、published_at、first_seen_at、expires_at、deleted_at |
 | `category_articles` | category_id、article_id、source_setting_id、inserted_at |
@@ -202,7 +203,7 @@ Job 依序讀取每個有效的 Category 與 Source Setting；每一組至多保
 
 ### 8.2 搜尋與 adapter
 
-Category、搜尋關鍵字、來源提示與特殊需求會組成 prompt。LLM 的輸出只是候選與摘要輔助，寫入前必須有可驗證 URL、來源資訊與去重檢查。每個 Article 保存原文 URL、canonical URL、來源與可用 citation。
+Category、搜尋關鍵字、來源提示、特殊需求與內容語言會組成 prompt。此版本只接受繁體中文（`zh-Hant`）；LLM 的輸出只是候選與摘要輔助，寫入前必須有可驗證 URL、來源資訊與去重檢查。每個 Article 保存原文 URL、canonical URL、來源與可用 citation。
 
 | 來源類型 | 首選方式 | 限制 |
 |---|---|---|

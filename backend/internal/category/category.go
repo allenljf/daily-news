@@ -2,10 +2,12 @@
 package category
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,6 +19,8 @@ import (
 
 var ErrNotFound = errors.New("category not found")
 
+const DefaultContentLanguage = "zh-Hant"
+
 type SourceSettingInput struct {
 	Label        string `json:"label"`
 	WebsiteInput string `json:"website_input"`
@@ -27,7 +31,42 @@ type Request struct {
 	SearchKeywords      *string              `json:"search_keywords"`
 	SpecialRequirements *string              `json:"special_requirements"`
 	SourceSettings      []SourceSettingInput `json:"source_settings"`
+	ContentLanguage     string               `json:"content_language"`
+	contentLanguageSet  bool
 }
+
+// UnmarshalJSON records whether content_language was supplied so an explicit
+// unsupported empty value cannot be mistaken for a backward-compatible omission.
+func (request *Request) UnmarshalJSON(data []byte) error {
+	var payload struct {
+		Name                string               `json:"name"`
+		SearchKeywords      *string              `json:"search_keywords"`
+		SpecialRequirements *string              `json:"special_requirements"`
+		SourceSettings      []SourceSettingInput `json:"source_settings"`
+		ContentLanguage     json.RawMessage      `json:"content_language"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		return errors.New("trailing JSON request data")
+	}
+	request.Name = payload.Name
+	request.SearchKeywords = payload.SearchKeywords
+	request.SpecialRequirements = payload.SpecialRequirements
+	request.SourceSettings = payload.SourceSettings
+	request.contentLanguageSet = payload.ContentLanguage != nil
+	request.ContentLanguage = ""
+	if request.contentLanguageSet {
+		if err := json.Unmarshal(payload.ContentLanguage, &request.ContentLanguage); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type SourceSetting struct {
 	ID             uuid.UUID `json:"id"`
 	Label          string    `json:"label"`
@@ -42,6 +81,7 @@ type Response struct {
 	SearchKeywords      *string         `json:"search_keywords"`
 	SpecialRequirements *string         `json:"special_requirements"`
 	SourceSettings      []SourceSetting `json:"source_settings"`
+	ContentLanguage     string          `json:"content_language"`
 }
 
 type Store struct{ db *sql.DB }
@@ -49,7 +89,7 @@ type Store struct{ db *sql.DB }
 func NewStore(db *sql.DB) *Store { return &Store{db: db} }
 
 func (store *Store) List(ctx context.Context) ([]Response, error) {
-	rows, err := store.db.QueryContext(ctx, `SELECT id,name,search_keywords,special_requirements FROM categories WHERE deleted_at IS NULL ORDER BY created_at`)
+	rows, err := store.db.QueryContext(ctx, `SELECT id,name,search_keywords,special_requirements,content_language FROM categories WHERE deleted_at IS NULL ORDER BY created_at`)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +97,7 @@ func (store *Store) List(ctx context.Context) ([]Response, error) {
 	results := make([]Response, 0)
 	for rows.Next() {
 		var value Response
-		if err := rows.Scan(&value.ID, &value.Name, &value.SearchKeywords, &value.SpecialRequirements); err != nil {
+		if err := rows.Scan(&value.ID, &value.Name, &value.SearchKeywords, &value.SpecialRequirements, &value.ContentLanguage); err != nil {
 			return nil, err
 		}
 		settings, err := store.settings(ctx, store.db, value.ID)
@@ -79,8 +119,12 @@ func (store *Store) Create(ctx context.Context, request Request) (Response, erro
 		return Response{}, err
 	}
 	defer tx.Rollback()
-	result := Response{ID: uuid.New(), Name: strings.TrimSpace(request.Name), SearchKeywords: trimOptional(request.SearchKeywords), SpecialRequirements: trimOptional(request.SpecialRequirements)}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO categories (id,name,search_keywords,special_requirements) VALUES ($1,$2,$3,$4)`, result.ID, result.Name, result.SearchKeywords, result.SpecialRequirements); err != nil {
+	contentLanguage, err := normalizedContentLanguage(request.ContentLanguage)
+	if err != nil {
+		return Response{}, err
+	}
+	result := Response{ID: uuid.New(), Name: strings.TrimSpace(request.Name), SearchKeywords: trimOptional(request.SearchKeywords), SpecialRequirements: trimOptional(request.SpecialRequirements), ContentLanguage: contentLanguage}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO categories (id,name,search_keywords,special_requirements,content_language) VALUES ($1,$2,$3,$4,$5)`, result.ID, result.Name, result.SearchKeywords, result.SpecialRequirements, result.ContentLanguage); err != nil {
 		return Response{}, err
 	}
 	if result.SourceSettings, err = insertSettings(ctx, tx, result.ID, request.SourceSettings); err != nil {
@@ -108,8 +152,12 @@ func (store *Store) Update(ctx context.Context, id uuid.UUID, request Request) (
 	if !exists {
 		return Response{}, ErrNotFound
 	}
-	result := Response{ID: id, Name: strings.TrimSpace(request.Name), SearchKeywords: trimOptional(request.SearchKeywords), SpecialRequirements: trimOptional(request.SpecialRequirements)}
-	if _, err = tx.ExecContext(ctx, `UPDATE categories SET name=$2,search_keywords=$3,special_requirements=$4,updated_at=now() WHERE id=$1`, id, result.Name, result.SearchKeywords, result.SpecialRequirements); err != nil {
+	contentLanguage, err := normalizedContentLanguage(request.ContentLanguage)
+	if err != nil {
+		return Response{}, err
+	}
+	result := Response{ID: id, Name: strings.TrimSpace(request.Name), SearchKeywords: trimOptional(request.SearchKeywords), SpecialRequirements: trimOptional(request.SpecialRequirements), ContentLanguage: contentLanguage}
+	if _, err = tx.ExecContext(ctx, `UPDATE categories SET name=$2,search_keywords=$3,special_requirements=$4,content_language=$5,updated_at=now() WHERE id=$1`, id, result.Name, result.SearchKeywords, result.SpecialRequirements, result.ContentLanguage); err != nil {
 		return Response{}, err
 	}
 	if _, err = tx.ExecContext(ctx, `UPDATE source_settings SET deleted_at=now() WHERE category_id=$1 AND deleted_at IS NULL`, id); err != nil {
@@ -195,7 +243,22 @@ func validate(request Request) error {
 	if strings.TrimSpace(request.Name) == "" {
 		return errors.New("category name is blank")
 	}
+	if request.contentLanguageSet && request.ContentLanguage != DefaultContentLanguage {
+		return errors.New("unsupported content language")
+	}
+	if _, err := normalizedContentLanguage(request.ContentLanguage); err != nil {
+		return err
+	}
 	return nil
+}
+func normalizedContentLanguage(value string) (string, error) {
+	if value == "" {
+		return DefaultContentLanguage, nil
+	}
+	if value != DefaultContentLanguage {
+		return "", errors.New("unsupported content language")
+	}
+	return value, nil
 }
 func trimOptional(value *string) *string {
 	if value == nil {

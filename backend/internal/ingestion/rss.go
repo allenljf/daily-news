@@ -15,30 +15,32 @@ type RSSAdapter struct{ client *http.Client }
 
 func NewRSSAdapter(client *http.Client) *RSSAdapter { return &RSSAdapter{client: client} }
 
-func (adapter *RSSAdapter) Search(ctx context.Context, work SourceWork) ([]CandidateArticle, error) {
+func (adapter *RSSAdapter) Search(ctx context.Context, work SourceWork) (SourceSearchResult, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, work.WebsiteInput, nil)
 	if err != nil {
-		return nil, fmt.Errorf("build feed request: %w", err)
+		return SourceSearchResult{}, fmt.Errorf("build feed request: %w", err)
 	}
 	response, err := adapter.client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("fetch feed: %w", err)
+		return SourceSearchResult{}, fmt.Errorf("fetch feed: %w", err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("feed returned %s", response.Status)
+		return SourceSearchResult{}, fmt.Errorf("feed returned %s", response.Status)
 	}
 	var feed struct {
-		Channel struct {
-			Items []feedEntry `xml:"item"`
+		Language string `xml:"lang,attr"`
+		Channel  struct {
+			Language string      `xml:"language"`
+			Items    []feedEntry `xml:"item"`
 		} `xml:"channel"`
 		Entries []feedEntry `xml:"entry"`
 	}
 	if err := xml.NewDecoder(io.LimitReader(response.Body, 2<<20)).Decode(&feed); err != nil {
-		return nil, fmt.Errorf("parse rss: %w", err)
+		return SourceSearchResult{}, fmt.Errorf("parse rss: %w", err)
 	}
 	entries := append(feed.Channel.Items, feed.Entries...)
-	articles := make([]CandidateArticle, 0, len(entries))
+	result := SourceSearchResult{Candidates: make([]CandidateArticle, 0, len(entries))}
 	for _, item := range entries {
 		citation := strings.TrimSpace(item.Link.Href)
 		if citation == "" {
@@ -48,16 +50,20 @@ func (adapter *RSSAdapter) Search(ctx context.Context, work SourceWork) ([]Candi
 		if err != nil || strings.TrimSpace(item.Title) == "" {
 			continue
 		}
+		if result.CandidateCount == maxCandidatesPerSource {
+			break
+		}
+		result.CandidateCount++
+		if !matchesContentLanguage(work.ContentLanguage, item.LanguageAttribute, item.Language, feed.Channel.Language, feed.Language) {
+			continue
+		}
 		summary := strings.TrimSpace(item.Description)
 		if summary == "" {
 			summary = strings.TrimSpace(item.Summary)
 		}
-		articles = append(articles, CandidateArticle{Title: strings.TrimSpace(item.Title), CanonicalURL: canonical, CitationURL: citation, Summary: &summary})
-		if len(articles) == maxCandidatesPerSource {
-			break
-		}
+		result.Candidates = append(result.Candidates, CandidateArticle{Title: strings.TrimSpace(item.Title), CanonicalURL: canonical, CitationURL: citation, Summary: &summary})
 	}
-	return articles, nil
+	return result, nil
 }
 
 type feedEntry struct {
@@ -66,8 +72,19 @@ type feedEntry struct {
 		Href string `xml:"href,attr"`
 		Text string `xml:",chardata"`
 	} `xml:"link"`
-	Description string `xml:"description"`
-	Summary     string `xml:"summary"`
+	Description       string `xml:"description"`
+	Summary           string `xml:"summary"`
+	LanguageAttribute string `xml:"lang,attr"`
+	Language          string `xml:"language"`
+}
+
+func matchesContentLanguage(requested string, values ...string) bool {
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			return strings.EqualFold(value, strings.TrimSpace(requested))
+		}
+	}
+	return true
 }
 
 func canonicalizeURL(raw string) (string, error) {

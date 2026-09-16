@@ -36,6 +36,9 @@ func TestWorkPlannerLoadsOnlyActiveHTTPSourceSettings(t *testing.T) {
 	if work[0].WebsiteInput != "https://feed.example/rss" {
 		t.Fatalf("website input = %q", work[0].WebsiteInput)
 	}
+	if work[0].ContentLanguage != "zh-Hant" {
+		t.Fatalf("content language = %q, want zh-Hant", work[0].ContentLanguage)
+	}
 }
 
 var _ *sql.DB

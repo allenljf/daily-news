@@ -23,9 +23,16 @@ type CandidateArticle struct {
 	PublishedAt  *time.Time
 }
 
-// SourceAdapter retrieves candidate Articles for a single Source Setting.
+// SourceSearchResult separates source candidate accounting from eligible Articles.
+// CandidateCount is capped source candidates considered before eligibility filtering.
+type SourceSearchResult struct {
+	Candidates     []CandidateArticle
+	CandidateCount int
+}
+
+// SourceAdapter retrieves candidates for a single Source Setting.
 type SourceAdapter interface {
-	Search(context.Context, SourceWork) ([]CandidateArticle, error)
+	Search(context.Context, SourceWork) (SourceSearchResult, error)
 }
 
 // SourceWork binds one adapter to the Category and Source Setting it serves.
@@ -33,6 +40,7 @@ type SourceWork struct {
 	CategoryID          uuid.UUID
 	SourceID            uuid.UUID
 	CategoryName        string
+	ContentLanguage     string
 	SearchKeywords      *string
 	SpecialRequirements *string
 	SourceLabel         string
@@ -64,7 +72,7 @@ func (orchestrator *Orchestrator) Run(ctx context.Context, runID uuid.UUID, work
 	}
 	var result Result
 	for _, item := range work {
-		candidates, err := item.Adapter.Search(ctx, item)
+		searchResult, err := item.Adapter.Search(ctx, item)
 		if err != nil {
 			if recordErr := orchestrator.recordFailure(ctx, runID, item, err); recordErr != nil {
 				return Result{}, recordErr
@@ -72,10 +80,8 @@ func (orchestrator *Orchestrator) Run(ctx context.Context, runID uuid.UUID, work
 			result.ErrorCount++
 			continue
 		}
-		if len(candidates) > maxCandidatesPerSource {
-			candidates = candidates[:maxCandidatesPerSource]
-		}
-		counts, err := orchestrator.recordSource(ctx, runID, item, candidates)
+		searchResult = searchResult.capped()
+		counts, err := orchestrator.recordSource(ctx, runID, item, searchResult)
 		if err != nil {
 			return Result{}, err
 		}
@@ -104,14 +110,24 @@ func (orchestrator *Orchestrator) markRunning(ctx context.Context, runID uuid.UU
 	return nil
 }
 
-func (orchestrator *Orchestrator) recordSource(ctx context.Context, runID uuid.UUID, item SourceWork, candidates []CandidateArticle) (Result, error) {
+func (result SourceSearchResult) capped() SourceSearchResult {
+	if result.CandidateCount > maxCandidatesPerSource {
+		result.CandidateCount = maxCandidatesPerSource
+	}
+	if len(result.Candidates) > result.CandidateCount {
+		result.Candidates = result.Candidates[:result.CandidateCount]
+	}
+	return result
+}
+
+func (orchestrator *Orchestrator) recordSource(ctx context.Context, runID uuid.UUID, item SourceWork, searchResult SourceSearchResult) (Result, error) {
 	tx, err := orchestrator.db.BeginTx(ctx, nil)
 	if err != nil {
 		return Result{}, err
 	}
 	defer tx.Rollback()
-	result := Result{CandidateCount: len(candidates)}
-	for _, candidate := range candidates {
+	result := Result{CandidateCount: searchResult.CandidateCount}
+	for _, candidate := range searchResult.Candidates {
 		created, err := orchestrator.recordCandidate(ctx, tx, item, candidate)
 		if err != nil {
 			return Result{}, err

@@ -56,6 +56,46 @@ func TestStorePreservesCategoryLifecycleSemantics(t *testing.T) {
 	}
 }
 
+func TestStorePreservesDefaultContentLanguageAndDatabaseConstraint(t *testing.T) {
+	database := integrationDatabase(t)
+	defer database.Close()
+	store := NewStore(database)
+
+	created, err := store.Create(context.Background(), Request{Name: "Taiwan news", SourceSettings: []SourceSettingInput{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if created.ContentLanguage != "zh-Hant" {
+		t.Fatalf("created content language = %q, want %q", created.ContentLanguage, "zh-Hant")
+	}
+	var persisted string
+	if err := database.QueryRow(`SELECT content_language FROM categories WHERE id=$1`, created.ID).Scan(&persisted); err != nil {
+		t.Fatal(err)
+	}
+	if persisted != "zh-Hant" {
+		t.Fatalf("persisted content language = %q, want %q", persisted, "zh-Hant")
+	}
+	listed, err := store.List(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].ContentLanguage != "zh-Hant" {
+		t.Fatalf("listed categories = %#v, want one zh-Hant category", listed)
+	}
+
+	var databaseDefault string
+	if err := database.QueryRow(`INSERT INTO categories (id,name) VALUES ($1,$2) RETURNING content_language`, uuid.New(), "Default language").Scan(&databaseDefault); err != nil {
+		t.Fatal(err)
+	}
+	if databaseDefault != "zh-Hant" {
+		t.Fatalf("database default content language = %q, want %q", databaseDefault, "zh-Hant")
+	}
+
+	if _, err := database.Exec(`INSERT INTO categories (id,name,content_language) VALUES ($1,$2,$3)`, uuid.New(), "English news", "en"); err == nil {
+		t.Fatal("INSERT with unsupported content language succeeded")
+	}
+}
+
 func TestHandlerListsNoCategoriesAsJSONArray(t *testing.T) {
 	database := integrationDatabase(t)
 	defer database.Close()

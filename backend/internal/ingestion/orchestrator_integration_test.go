@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -85,13 +87,79 @@ func TestOrchestratorPersistsDedupeExpiryAttemptsAndTerminalRun(t *testing.T) {
 	}
 }
 
+func TestOrchestratorCountsLanguageFilteredRSSCandidatesWithoutWritingThem(t *testing.T) {
+	database := ingestionIntegrationDatabase(t)
+	defer database.Close()
+
+	runID, categoryID, _, mixedSourceID, _, _ := seedIngestionWork(t, database)
+	filteredSourceID := uuid.New()
+	if _, err := database.Exec(`INSERT INTO source_settings (id,category_id,label,website_input,kind,position) VALUES ($1,$2,'Filtered','https://feed.example/filtered','website',2)`, filteredSourceID, categoryID); err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/rss+xml")
+		switch request.URL.Path {
+		case "/mixed":
+			_, _ = writer.Write([]byte(`<?xml version="1.0"?><rss><channel><item><title>Traditional</title><link>https://news.example/traditional</link><language>zh-Hant</language></item><item><title>Simplified</title><link>https://news.example/simplified</link><language>zh-Hans</language></item></channel></rss>`))
+		case "/filtered":
+			_, _ = writer.Write([]byte(`<?xml version="1.0"?><rss><channel><item><title>Simplified One</title><link>https://news.example/simplified-one</link><language>zh-Hans</language></item><item><title>Simplified Two</title><link>https://news.example/simplified-two</link><language>zh-Hans</language></item></channel></rss>`))
+		default:
+			t.Fatalf("unexpected feed path %q", request.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	adapter := NewRSSAdapter(server.Client())
+	result, err := NewOrchestrator(database).Run(context.Background(), runID, []SourceWork{
+		{CategoryID: categoryID, SourceID: mixedSourceID, WebsiteInput: server.URL + "/mixed", ContentLanguage: "zh-Hant", Adapter: adapter},
+		{CategoryID: categoryID, SourceID: filteredSourceID, WebsiteInput: server.URL + "/filtered", ContentLanguage: "zh-Hant", Adapter: adapter},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result != (Result{CandidateCount: 4, InsertedCount: 1}) {
+		t.Fatalf("result = %#v", result)
+	}
+
+	var runCandidates, runInserted int
+	if err := database.QueryRow(`SELECT candidate_count,inserted_count FROM ingestion_runs WHERE id=$1`, runID).Scan(&runCandidates, &runInserted); err != nil {
+		t.Fatal(err)
+	}
+	if runCandidates != 4 || runInserted != 1 {
+		t.Fatalf("run counts = %d candidates, %d inserted", runCandidates, runInserted)
+	}
+	assertAttemptCounts(t, database, runID, mixedSourceID, 2, 1)
+	assertAttemptCounts(t, database, runID, filteredSourceID, 2, 0)
+
+	var articles int
+	if err := database.QueryRow(`SELECT count(*) FROM articles WHERE canonical_url IN ('https://news.example/traditional','https://news.example/simplified','https://news.example/simplified-one','https://news.example/simplified-two')`).Scan(&articles); err != nil {
+		t.Fatal(err)
+	}
+	if articles != 1 {
+		t.Fatalf("stored language-eligible articles = %d, want 1", articles)
+	}
+}
+
+func assertAttemptCounts(t *testing.T, database *sql.DB, runID, sourceID uuid.UUID, wantCandidates, wantInserted int) {
+	t.Helper()
+	var candidates, inserted int
+	var status string
+	var errorSummary sql.NullString
+	if err := database.QueryRow(`SELECT candidate_count,inserted_count,status,error_summary FROM ingestion_attempts WHERE run_id=$1 AND source_setting_id=$2`, runID, sourceID).Scan(&candidates, &inserted, &status, &errorSummary); err != nil {
+		t.Fatal(err)
+	}
+	if candidates != wantCandidates || inserted != wantInserted || status != "succeeded" || errorSummary.Valid {
+		t.Fatalf("attempt = %d candidates, %d inserted, %q status, error=%q", candidates, inserted, status, errorSummary.String)
+	}
+}
+
 type fakeAdapter struct {
 	candidates []CandidateArticle
 	err        error
 }
 
-func (adapter fakeAdapter) Search(context.Context, SourceWork) ([]CandidateArticle, error) {
-	return adapter.candidates, adapter.err
+func (adapter fakeAdapter) Search(context.Context, SourceWork) (SourceSearchResult, error) {
+	return SourceSearchResult{Candidates: adapter.candidates, CandidateCount: len(adapter.candidates)}, adapter.err
 }
 
 func seedIngestionWork(t *testing.T, database *sql.DB) (uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID, uuid.UUID) {
