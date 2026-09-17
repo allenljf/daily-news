@@ -209,16 +209,16 @@ Category、搜尋關鍵字、來源提示、特殊需求與內容語言會組成
 
 1. 直接解析 RSS/Atom。
 2. 若回應是 HTML，只讀取 `rel` 含 `alternate` 且 type 為 RSS/Atom 的 `<link>`，將相對 `href` 解析為絕對 URL，要求公開 HTTP(S) 且位於設定網站的 host 或其 subdomain，並取得第一個合格 feed。
-3. 若沒有合格 feed，或 feed 取得／解析失敗，呼叫 Google Custom Search JSON API，只接受同 host/subdomain、公開 HTTP(S) 的結果，並可用 `dateRestrict` 限制近期範圍。任何 fallback 都不會停用單一來源失敗隔離、30 天到期、全域 soft delete 或 URL 優先、標題次之去重。
+3. 若沒有合格 feed，或 feed 取得／解析失敗，呼叫 SerpApi 的 Google News 搜尋（`engine=google_news`）。設定網站時以 `site:<host>` 限制在該 host，未指定網站時搜尋整個網路；以 `when:<window>` 限制近期範圍。任何 fallback 都不會停用單一來源失敗隔離、30 天到期、全域 soft delete 或 URL 優先、標題次之去重。
 
 | 來源類型 | 首選方式 | 限制 |
 |---|---|---|
-| 一般公開新聞站／官方部落格 | 直接 RSS/Atom → 從首頁 HTML `<link rel="alternate">` 發現同 host/subdomain 的 RSS/Atom → Google Custom Search JSON API | 只處理公開可索引、可直讀頁；自動發現的 feed 與搜尋候選都必須是公開 HTTP(S) 且限於設定網站的 host/subdomain；搜尋可用 `dateRestrict` 控制近期範圍；不得假定收錄、即時性或全文可得。 |
+| 一般公開新聞站／官方部落格 | 直接 RSS/Atom → 從首頁 HTML `<link rel="alternate">` 發現同 host/subdomain 的 RSS/Atom → SerpApi Google News 搜尋 | 只處理公開可索引、可直讀頁；自動發現的 feed 必須是公開 HTTP(S) 且限於設定網站的 host/subdomain；設定網站時搜尋以 `site:` 限制、未指定網站時為全網搜尋；可用 `SERPAPI_WHEN` 控制近期範圍；不得假定收錄、即時性或全文可得。 |
 | YouTube | YouTube Data API v3 `search.list` 關鍵字搜尋 | 固定 `type=video`、每來源最多 10 筆，必要時使用 `relevanceLanguage`；由 `YOUTUBE_API_KEY` 啟用；保存影片公開 URL 作 canonical URL 與 citation；URL Context 不支援影片內容。 |
 | GitHub | GitHub REST API（release/event 等） | 未授權公開請求有限流；private repo 需要適當授權。 |
-| Facebook／Instagram／Threads | 未來 adapter，僅限指定 Page、已授權 Professional 帳號／hashtag，或官方 Threads API | 目前不支援任意全文關鍵字搜尋；不得以 Google Custom Search 或其他一般搜尋取代，也不得當成可讀取任意 Meta 社群內容的 contract。 |
+| Facebook／Instagram／Threads | 未來 adapter，僅限指定 Page、已授權 Professional 帳號／hashtag，或官方 Threads API | 目前不支援任意全文關鍵字搜尋；不得以 SerpApi 或其他一般搜尋取代，也不得當成可讀取任意 Meta 社群內容的 contract。 |
 
-首頁與 feed 取得共用一個受控 HTTP client：具 request timeout、2 MiB response size limit、redirect cap，並在連線前拒絕 loopback、link-local、private 及其他非公開位址。任何 adapter 都不得在 error summary 記錄 API key、access token、prompt、頁面全文或 Firebase token。Google Custom Search 的 `GOOGLE_CSE_DATE_RESTRICT` 預設限制近期結果，以降低舊資料被收錄的機會。
+首頁與 feed 取得共用一個受控 HTTP client：具 request timeout、2 MiB response size limit、redirect cap，並在連線前拒絕 loopback、link-local、private 及其他非公開位址。任何 adapter 都不得在 error summary 記錄 API key、access token、prompt、頁面全文或 Firebase token。SerpApi 的 `SERPAPI_WHEN` 預設限制近期結果，以降低舊資料被收錄的機會。
 
 ## 9. 安全、秘密與設定
 
@@ -233,15 +233,14 @@ Cloud Run runtime 自 Secret Manager 取得必要秘密。GitHub Actions 不持�
 
 | 名稱 | 需要時機 | 建議位置 |
 |---|---|---|
-| `GOOGLE_CSE_API_KEY` | 啟用一般網站 Google Custom Search fallback 時 | Secret Manager。 |
-| `GOOGLE_CSE_ID` | 啟用 Google Custom Search fallback 時 | Secret Manager（設定值，非敏感）。 |
-| `GOOGLE_CSE_DATE_RESTRICT` | 選用 | Job 環境設定，非秘密；控制搜尋近期範圍，有預設值。 |
+| `SERPAPI_API_KEY` | 啟用一般網站／未指定網站的 Google News 搜尋 fallback 時 | Secret Manager。 |
+| `SERPAPI_WHEN` | 選用 | Job 環境設定，非秘密；控制搜尋近期範圍，有預設值（`7d`）。 |
 | `DB_PASSWORD` | PostgreSQL password authentication | Secret Manager。 |
 | `GITHUB_NEWS_TOKEN` | 需要較高 GitHub API rate limit 或 private 資源時 | Secret Manager。 |
 | `YOUTUBE_API_KEY` | 啟用 YouTube adapter 時 | Secret Manager。 |
 | Meta platform access token | 啟用 Facebook／Instagram／Threads 且已授權的未來 Meta adapter 時 | Secret Manager。 |
 
-Facebook／Instagram／Threads adapter 不進行任意全文關鍵字搜尋，且不得以 Google Custom Search 或 LLM 代理讀取；未配置憑證或未取得授權時只讓該 Source Setting 產生 failed Attempt。
+Facebook／Instagram／Threads adapter 不進行任意全文關鍵字搜尋，且不得以 SerpApi 或 LLM 代理讀取；未配置憑證或未取得授權時只讓該 Source Setting 產生 failed Attempt。
 
 Firebase client configuration 是可公開的 client 設定，不是 server secret；Firebase Admin 在 Cloud Run 以 Application Default Credentials 運作。後端以環境設定 `ALLOWED_USER_EMAIL` 進行 allowlist 比對，log 不得輸出完整 ID token、prompt、秘密或個人資料。
 

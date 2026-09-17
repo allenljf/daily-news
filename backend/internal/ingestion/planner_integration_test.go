@@ -30,7 +30,7 @@ func TestWorkPlannerLoadsOnlyActiveHTTPSourceSettings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(work) != 1 {
+	if len(work) != 2 {
 		t.Fatalf("work count = %d", len(work))
 	}
 	if work[0].WebsiteInput != "https://feed.example/rss" {
@@ -38,6 +38,9 @@ func TestWorkPlannerLoadsOnlyActiveHTTPSourceSettings(t *testing.T) {
 	}
 	if work[0].ContentLanguage != "zh-Hant" {
 		t.Fatalf("content language = %q, want zh-Hant", work[0].ContentLanguage)
+	}
+	if work[1].WebsiteInput != "" {
+		t.Fatalf("unspecified website input = %q, want empty", work[1].WebsiteInput)
 	}
 }
 

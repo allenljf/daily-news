@@ -14,31 +14,34 @@ import (
 // ErrWebSearchNotConfigured isolates a missing search credential to one source.
 var ErrWebSearchNotConfigured = errors.New("web search is not configured")
 
-// GoogleSearchAdapter uses the Google Custom Search JSON API as the bounded
-// fallback for a public website that exposes no discoverable RSS/Atom feed.
-type GoogleSearchAdapter struct {
-	client       HTTPDoer
-	apiKey       string
-	engineID     string
-	dateRestrict string
-	endpoint     string
+// SerpAPIAdapter performs a Google News keyword search through SerpApi. It is
+// the whole-web fallback for a Source Setting that exposes no RSS/Atom feed;
+// an explicit website is restricted with the `site:` operator.
+type SerpAPIAdapter struct {
+	client   HTTPDoer
+	apiKey   string
+	when     string
+	endpoint string
 }
 
-func NewGoogleSearchAdapter(client HTTPDoer, apiKey, engineID, dateRestrict string) *GoogleSearchAdapter {
-	return &GoogleSearchAdapter{
-		client:       client,
-		apiKey:       strings.TrimSpace(apiKey),
-		engineID:     strings.TrimSpace(engineID),
-		dateRestrict: strings.TrimSpace(dateRestrict),
-		endpoint:     "https://www.googleapis.com/customsearch/v1",
+func NewSerpAPIAdapter(client HTTPDoer, apiKey, when string) *SerpAPIAdapter {
+	when = strings.TrimSpace(when)
+	if when == "" {
+		when = "7d"
+	}
+	return &SerpAPIAdapter{
+		client:   client,
+		apiKey:   strings.TrimSpace(apiKey),
+		when:     when,
+		endpoint: "https://serpapi.com/search",
 	}
 }
 
-func (adapter *GoogleSearchAdapter) configured() bool {
-	return adapter != nil && adapter.apiKey != "" && adapter.engineID != ""
+func (adapter *SerpAPIAdapter) configured() bool {
+	return adapter != nil && adapter.apiKey != ""
 }
 
-func (adapter *GoogleSearchAdapter) Search(ctx context.Context, work SourceWork) (SourceSearchResult, error) {
+func (adapter *SerpAPIAdapter) Search(ctx context.Context, work SourceWork) (SourceSearchResult, error) {
 	if !adapter.configured() {
 		return SourceSearchResult{}, ErrWebSearchNotConfigured
 	}
@@ -46,14 +49,19 @@ func (adapter *GoogleSearchAdapter) Search(ctx context.Context, work SourceWork)
 	if query == "" {
 		return SourceSearchResult{}, errors.New("web search has no query terms")
 	}
-	values := url.Values{}
-	values.Set("key", adapter.apiKey)
-	values.Set("cx", adapter.engineID)
-	values.Set("q", query)
-	values.Set("num", "10")
-	if adapter.dateRestrict != "" {
-		values.Set("dateRestrict", adapter.dateRestrict)
+	if host := sourceHost(work.WebsiteInput); host != "" {
+		query += " site:" + host
 	}
+	if adapter.when != "" {
+		query += " when:" + adapter.when
+	}
+	language, country := serpAPILocale(work.ContentLanguage)
+	values := url.Values{}
+	values.Set("engine", "google_news")
+	values.Set("q", query)
+	values.Set("hl", language)
+	values.Set("gl", country)
+	values.Set("api_key", adapter.apiKey)
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, adapter.endpoint+"?"+values.Encode(), nil)
 	if err != nil {
 		return SourceSearchResult{}, fmt.Errorf("build web search request: %w", err)
@@ -71,20 +79,26 @@ func (adapter *GoogleSearchAdapter) Search(ctx context.Context, work SourceWork)
 		return SourceSearchResult{}, err
 	}
 	var payload struct {
-		Items []struct {
+		Error       string `json:"error"`
+		NewsResults []struct {
 			Title   string `json:"title"`
 			Link    string `json:"link"`
+			Date    string `json:"date"`
+			ISODate string `json:"iso_date"`
 			Snippet string `json:"snippet"`
-			PageMap struct {
-				MetaTags []map[string]string `json:"metatags"`
-			} `json:"pagemap"`
-		} `json:"items"`
+			Source  struct {
+				Name string `json:"name"`
+			} `json:"source"`
+		} `json:"news_results"`
 	}
 	if err := json.Unmarshal(data, &payload); err != nil {
 		return SourceSearchResult{}, fmt.Errorf("parse web search response: %w", err)
 	}
+	if strings.TrimSpace(payload.Error) != "" {
+		return SourceSearchResult{}, errors.New("web search rejected the request")
+	}
 	result := SourceSearchResult{}
-	for _, item := range payload.Items {
+	for _, item := range payload.NewsResults {
 		if result.CandidateCount == maxCandidatesPerSource {
 			break
 		}
@@ -95,32 +109,28 @@ func (adapter *GoogleSearchAdapter) Search(ctx context.Context, work SourceWork)
 			continue
 		}
 		canonical, err := canonicalizeURL(citation)
-		if err != nil || !withinSourceHost(work.WebsiteInput, canonical) {
+		if err != nil {
 			continue
 		}
 		summary := strings.TrimSpace(item.Snippet)
+		var publishedAt *time.Time
+		if parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(item.ISODate)); err == nil {
+			publishedAt = &parsed
+		}
 		result.Candidates = append(result.Candidates, CandidateArticle{
 			Title:        title,
 			CanonicalURL: canonical,
 			CitationURL:  citation,
 			Summary:      &summary,
-			PublishedAt:  publishedTime(item.PageMap.MetaTags),
+			PublishedAt:  publishedAt,
 		})
 	}
 	return result, nil
 }
 
-func publishedTime(metaTags []map[string]string) *time.Time {
-	for _, meta := range metaTags {
-		for _, key := range []string{"article:published_time", "og:updated_time", "datePublished"} {
-			value := strings.TrimSpace(meta[key])
-			if value == "" {
-				continue
-			}
-			if parsed, err := time.Parse(time.RFC3339, value); err == nil {
-				return &parsed
-			}
-		}
+func serpAPILocale(contentLanguage string) (string, string) {
+	if normalizeContentLanguage(strings.TrimSpace(contentLanguage)) == "en" {
+		return "en", "us"
 	}
-	return nil
+	return "zh-tw", "tw"
 }

@@ -6,7 +6,7 @@
 
 **Architecture:** Flutter 採 View/ViewModel + Repository/Service，Riverpod 只負責 composition 與 UI state，Dio 僅存在 remote service。Go 以 `net/http`、明確 composition root、`database/sql` + pgx adapter 與 Firebase Admin Go SDK 提供 versioned HTTP interface；Cloud Run service 提供 App API，Cloud Run Job 執行 ingestion，GitHub Actions 以 OIDC/WIF 觸發 scheduled Job。Python task 的完成紀錄是歷史證據；Go replacement phase 才是目前 backend 實作路徑。
 
-**Tech Stack:** Flutter Material 3, `flutter_riverpod`, Dio, `go_router`, `json_serializable`, Firebase Google Sign-In, Go standard library (`net/http`, `context`, `encoding/json`, `errors`, `testing/httptest`), `database/sql` + pgx adapter, Firebase Admin Go SDK, golang-migrate, PostgreSQL, Cloud Run, Secret Manager, GitHub Actions OIDC/WIF, Google Custom Search JSON API, GitHub REST API, YouTube Data API.
+**Tech Stack:** Flutter Material 3, `flutter_riverpod`, Dio, `go_router`, `json_serializable`, Firebase Google Sign-In, Go standard library (`net/http`, `context`, `encoding/json`, `errors`, `testing/httptest`), `database/sql` + pgx adapter, Firebase Admin Go SDK, golang-migrate, PostgreSQL, Cloud Run, Secret Manager, GitHub Actions OIDC/WIF, SerpApi Google News, GitHub REST API, YouTube Data API.
 
 **Spec:** [每日新聞 App 需求與架構規格](../requirements/daily-news.md)
 
@@ -850,18 +850,23 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 
 - 2026-09-16：使用者回報「以前不限定繁體中文時還有資料」。`matchesContentLanguage` 把 channel 或 feed 層的 `<language>` 當成每個 entry 的語言，因此多個繁中站台（內部標示 `zh-TW`）對 `zh-Hant` Category 全數被丟棄。Red/Green：新增 `TestRSSAdapterAcceptsTraditionalChineseVariants`，並將比對改為先做語言正規化（`zh`/`zh-TW`/`zh-HK`/`zh-MO` → `zh-Hant`，`zh-CN`/`zh-SG`/`zh-Hans` → `zh-Hans`，`en-*` → `en`）。驗證：本機探針對 `ithome.com.tw`、`inside.com.tw`、`technews.tw`、`thenewslens.com` 由 eligible=0 恢復為 eligible=10；`cd backend && gofmt -w internal/ingestion && go test ./internal/ingestion -run 'RSSCategory|ContentLanguage|Traditional|English' -count=1` 通過。
 
-### Task 10: Replace or drop the general-web search fallback
+### Task 10: Replace the general-web search fallback with SerpApi Google News
 
 **Depends on:** Task 7, Task 9
-**Parallel:** no — depends on Google API availability.
-**Files:** Depending on the decision, remove `backend/internal/ingestion/googlesearch.go` and its secret wiring, or add a supported search adapter.
+**Parallel:** no — depends on external search API availability.
+**Files:** Delete `backend/internal/ingestion/googlesearch.go` and its test; create `backend/internal/ingestion/serpapi.go` and `serpapi_test.go`; modify `backend/internal/ingestion/{web.go,planner.go,planner_integration_test.go}`, `backend/cmd/daily-news-job/main.go`, `backend/.env.example`, `backend/tests/test_container_contract.py`, `infra/cloud-run/job.yaml`, `infra/docs/secret-inventory.md`, `docs/requirements/daily-news.md`, `docs/superpowers/specs/2026-09-16-web-source-adapters-design.md`, and this task record.
 
-- [ ] **Step 1: Decide** — the Google Custom Search JSON API is closed to new customers, so this project gets `403 This project does not have the access to Custom Search JSON API`. Choose between (a) drop the search fallback and rely on RSS/Atom plus platform APIs, or (b) adopt a supported alternative (for example Vertex AI Search or a third-party search API).
-- [ ] **Step 2: Implement** — remove the unusable adapter and secrets, or implement and wire the chosen alternative with the same host restriction and bounded HTTP controls.
+- [x] **Step 1: Research** — the Google Custom Search JSON API is closed to new customers, so this project gets `403`. SerpApi exposes Google News through `engine=google_news` with `site:`, `when:`, `hl` and `gl`, which fits the fallback.
+- [x] **Step 2: Implement** — replace the Google adapter with `SerpAPIAdapter`; the Web adapter uses it when a site has no feed (`site:<host>`), and the planner now also plans unspecified Source Settings for whole-web search.
+- [x] **Step 3: Configure** — swap the `GOOGLE_CSE_*` secrets for `SERPAPI_API_KEY` plus the non-secret `SERPAPI_WHEN` in the Job manifest, `.env.example`, and the secret inventory.
+- [x] **Step 4: Verify** — `cd backend && gofmt -l . && go vet ./... && GOFLAGS=-p=1 go test -count=1 ./...` and the container contract test pass.
+- [ ] **Step 5: Commit and deploy** — commit the verified change and publish it.
+- [ ] **Step 6: Live check** — after the user stores `SERPAPI_API_KEY`, run a homepage-only and an unspecified Source Setting to confirm the fallback returns results.
 
 **完成紀錄：**
 
-- 2026-09-16：驗證 `customsearch.googleapis.com` 已在 `daily-news-93f7b` 啟用、API key 正確且無 application restriction，但 `https://www.googleapis.com/customsearch/v1` 仍回 403 `This project does not have the access to Custom Search JSON API`。Google 文件與社群確認該 API 已停止對新客戶開放（現有客戶至 2027-01-01）。因此 Task 7 的一般網站搜尋 fallback 對此專案無法運作；目前先改以有 feed 的繁中站台，待使用者決定 Task 10 方向。
+- 2026-09-16：Google Custom Search JSON API 對新客戶關閉（`customsearch.googleapis.com` 已啟用、key 正確仍 403）。改用 SerpApi。新增 `SerpAPIAdapter`（`engine=google_news`、`site:<host>`／全網、`when:<window>`、`hl`/`gl` 依內容語言、每來源 10 筆、缺 key 回 `web search is not configured`、錯誤不洩漏 key）；`WebSourceAdapter` 對無 feed 網站與未指定網站都走此 fallback；`WorkPlanner` 現在也納入空白 `website_input` 的 Source Setting。設定由 `GOOGLE_CSE_*` 改為 `SERPAPI_API_KEY`（Secret）與 `SERPAPI_WHEN`（預設 `7d`）。Verify：`cd backend && gofmt -l . && go vet ./... && go test ./internal/ingestion ./cmd/daily-news-job -count=1` 通過；`uv run pytest tests/test_container_contract.py -q` 通過；`GOFLAGS=-p=1 go test -count=1 ./...` 全部 `ok`。Step 5/6 待 commit 與建好 secret 後執行。
+
 
 
 

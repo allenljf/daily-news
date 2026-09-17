@@ -73,11 +73,10 @@ func run(ctx context.Context, runID string, stderr io.Writer) int {
 // adapters. A missing credential disables only its own Source Setting.
 func buildSourceAdapter() ingestion.SourceAdapter {
 	fetcher := ingestion.NewSafeFetcher()
-	search := ingestion.NewGoogleSearchAdapter(
+	search := ingestion.NewSerpAPIAdapter(
 		fetcher,
-		os.Getenv("GOOGLE_CSE_API_KEY"),
-		os.Getenv("GOOGLE_CSE_ID"),
-		os.Getenv("GOOGLE_CSE_DATE_RESTRICT"),
+		os.Getenv("SERPAPI_API_KEY"),
+		os.Getenv("SERPAPI_WHEN"),
 	)
 	return ingestion.NewHostRouter(
 		ingestion.NewWebSourceAdapter(fetcher, search),

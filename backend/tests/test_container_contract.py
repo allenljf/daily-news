@@ -29,9 +29,9 @@ def test_cloud_run_job_executes_go_job_binary() -> None:
 def test_cloud_run_job_injects_ingestion_adapter_secrets() -> None:
     manifest = (REPOSITORY_ROOT / "infra/cloud-run/job.yaml").read_text()
 
-    for secret in ("GOOGLE_CSE_API_KEY", "GOOGLE_CSE_ID", "YOUTUBE_API_KEY"):
+    for secret in ("SERPAPI_API_KEY", "YOUTUBE_API_KEY"):
         assert f"name: {secret}" in manifest
-    assert "GOOGLE_CSE_DATE_RESTRICT" in manifest
+    assert "SERPAPI_WHEN" in manifest
 
 
 

@@ -24,20 +24,15 @@ spec:
                     secretKeyRef:
                       name: DATABASE_URL
                       key: latest
-                - name: GOOGLE_CSE_API_KEY
+                - name: SERPAPI_API_KEY
                   valueFrom:
                     secretKeyRef:
-                      name: GOOGLE_CSE_API_KEY
-                      key: latest
-                - name: GOOGLE_CSE_ID
-                  valueFrom:
-                    secretKeyRef:
-                      name: GOOGLE_CSE_ID
+                      name: SERPAPI_API_KEY
                       key: latest
                 - name: YOUTUBE_API_KEY
                   valueFrom:
                     secretKeyRef:
                       name: YOUTUBE_API_KEY
                       key: latest
-                - name: GOOGLE_CSE_DATE_RESTRICT
-                  value: m1
+                - name: SERPAPI_WHEN
+                  value: 7d

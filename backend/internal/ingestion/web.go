@@ -25,6 +25,14 @@ func NewWebSourceAdapter(fetcher *Fetcher, search SourceAdapter) *WebSourceAdapt
 }
 
 func (adapter *WebSourceAdapter) Search(ctx context.Context, work SourceWork) (SourceSearchResult, error) {
+	// An unspecified Source Setting ("未指定網站") has no site to fetch; go
+	// straight to the whole-web keyword search.
+	if sourceHost(work.WebsiteInput) == "" {
+		if adapter.search == nil {
+			return SourceSearchResult{}, ErrWebSearchNotConfigured
+		}
+		return adapter.search.Search(ctx, work)
+	}
 	fetched, fetchErr := adapter.fetcher.Fetch(ctx, work.WebsiteInput)
 	if fetchErr == nil {
 		if result, err := parseFeed(fetched.Body, work); err == nil {
