@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/news.dart';
+import 'news_list_controller.dart';
 import 'news_providers.dart';
 
 typedef NewsDetailArgs = ({String categoryId, String newsId});
@@ -51,6 +52,7 @@ final class NewsDetailController extends AsyncNotifier<NewsDetailUiState> {
     final current = state.asData?.value;
     if (current == null) return;
     await ref.read(newsRepositoryProvider).deleteNews(args.newsId);
+    ref.invalidate(newsListControllerProvider(args.categoryId));
     state = AsyncData(current.copyWith(deleted: true));
   }
 }

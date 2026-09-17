@@ -101,6 +101,27 @@ void main() {
     },
   );
 
+  testWidgets('deleting an Article removes it from its Category list', (
+    tester,
+  ) async {
+    final repository = _FakeNewsRepository();
+    await _pumpNewsRoute(tester, repository);
+
+    expect(find.text('Article 1'), findsOneWidget);
+
+    await tester.tap(find.byKey(newsListItemKey('article-1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(deleteNewsButtonKey));
+    await tester.pumpAndSettle();
+    expect(find.text('新聞已刪除'), findsOneWidget);
+
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Article 1'), findsNothing);
+    expect(find.text('Article 2'), findsOneWidget);
+  });
+
   testWidgets(
     'Category delete confirmation stops its schedule and returns home',
     (tester) async {
@@ -223,6 +244,44 @@ Future<void> _pump(
   await tester.pumpAndSettle();
 }
 
+Future<void> _pumpNewsRoute(
+  WidgetTester tester,
+  NewsRepository repository,
+) async {
+  final router = GoRouter(
+    initialLocation: '/categories/category-1/news',
+    routes: [
+      GoRoute(
+        path: '/categories/:categoryId/news',
+        builder: (_, state) =>
+            NewsListScreen(categoryId: state.pathParameters['categoryId']!),
+        routes: [
+          GoRoute(
+            path: ':newsId',
+            builder: (_, state) => NewsDetailScreen(
+              categoryId: state.pathParameters['categoryId']!,
+              newsId: state.pathParameters['newsId']!,
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+  addTearDown(router.dispose);
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [newsRepositoryProvider.overrideWithValue(repository)],
+      child: MaterialApp.router(
+        locale: const Locale('zh'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 Future<void> _pumpCategoryRoute(
   WidgetTester tester,
   CategoryRepository categoryRepository,
@@ -273,10 +332,14 @@ final class _FakeNewsRepository implements NewsRepository {
     if (request.cursor == 'next-page') {
       return NewsPage(items: [_item(21)], nextCursor: null);
     }
+    final items =
+        firstPageItems ??
+        [for (var index = 1; index <= 20; index += 1) _item(index)];
     return NewsPage(
-      items:
-          firstPageItems ??
-          [for (var index = 1; index <= 20; index += 1) _item(index)],
+      items: [
+        for (final item in items)
+          if (!deletedIds.contains(item.id)) item,
+      ],
       nextCursor: 'next-page',
     );
   }
