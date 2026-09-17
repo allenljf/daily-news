@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "855124405761",
+    "project_id": "daily-news-93f7b",
+    "storage_bucket": "daily-news-93f7b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:855124405761:android:4b9f4ec31436982eb11a00",
+        "android_client_info": {
+          "package_name": "com.allenljf.dailynews"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "855124405761-1lgr2a60usqrreo9e03lq89jud4ioncm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQqzbiT79jvD4194hTSVsb_2cB59v20w8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "855124405761-1lgr2a60usqrreo9e03lq89jud4ioncm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "855124405761-c9hqpbvtthejdber0pep04cer42i91gr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.allenljf.dailynews"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

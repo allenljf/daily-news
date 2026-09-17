@@ -867,8 +867,36 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 
 - 2026-09-16：Google Custom Search JSON API 對新客戶關閉（`customsearch.googleapis.com` 已啟用、key 正確仍 403）。改用 SerpApi。新增 `SerpAPIAdapter`（`engine=google_news`、`site:<host>`／全網、`when:<window>`、`hl`/`gl` 依內容語言、每來源 10 筆、缺 key 回 `web search is not configured`、錯誤不洩漏 key）；`WebSourceAdapter` 對無 feed 網站與未指定網站都走此 fallback；`WorkPlanner` 現在也納入空白 `website_input` 的 Source Setting。設定由 `GOOGLE_CSE_*` 改為 `SERPAPI_API_KEY`（Secret）與 `SERPAPI_WHEN`（預設 `7d`）。Verify：`cd backend && gofmt -l . && go vet ./... && go test ./internal/ingestion ./cmd/daily-news-job -count=1` 通過；`uv run pytest tests/test_container_contract.py -q` 通過；`GOFLAGS=-p=1 go test -count=1 ./...` 全部 `ok`。Fix commit `e33ea1c`（`feat: replace web search fallback with SerpApi Google News`）已 push，Deploy Cloud Run 成功，Job `Ready: True`、image `e33ea1c`、env 含 `SERPAPI_API_KEY` 與 `SERPAPI_WHEN=7d`。Live check：使用者建立 `SERPAPI_API_KEY` 並授權後，以真實 API 的臨時探針驗證 `site:bnext.com.tw` 回 1 筆、未指定網站的全網查詢回 10 筆繁中新聞，且錯誤不含 key；探針已刪除。未修改 OpenAPI 或 Flutter contract。
 
+### Task 11: Remove a deleted Article from its Category news list
 
+**Depends on:** F5
+**Parallel:** no — repairs the existing News list/detail state sync.
+**Files:** Modify `apps/mobile/lib/features/news/application/news_detail_controller.dart`, `apps/mobile/test/features/news/news_list_test.dart`, and this task record.
 
+- [x] **Step 1: Write the failing test** — deleting an Article from the detail screen must also remove it from the Category news list when the user returns.
+- [x] **Step 2: Verify RED** — the new Router-backed widget test failed with `Found 1 widget with text "Article 1"` after navigating back, proving the list kept the deleted row.
+- [x] **Step 3: Implement GREEN** — after a successful `DELETE /v1/news/{newsId}`, invalidate `newsListControllerProvider(categoryId)` so the list reloads and drops the Article.
+- [x] **Step 4: Verify GREEN** — `cd apps/mobile && flutter analyze && flutter test test/features/news && flutter test` and the guide rules check passed.
+
+**完成紀錄：**
+
+- 2026-09-17：使用者回報「刪除新聞後，列表還存在」。根因：`NewsDetailController.delete()` 只把 detail state 標為 `deleted`，從未通知 `newsListControllerProvider`，所以返回列表時舊的 Article row 仍在記憶體 state 中（`apps/mobile/lib/features/news/application/news_detail_controller.dart:50`）。Red：在 `test/features/news/news_list_test.dart` 新增 Router-backed 測試，讓 fake repository 依 `deletedIds` 過濾列表結果，並在刪除後按 BackButton 返回；`cd apps/mobile && flutter test test/features/news/news_list_test.dart --plain-name 'deleting an Article removes it from its Category list'` 以 `Found 1 widget with text "Article 1"` 失敗，確認列表未同步。Green：刪除成功後呼叫 `ref.invalidate(newsListControllerProvider(args.categoryId))`，使列表在返回時重新讀取 API；focused test 通過。Verify：`cd apps/mobile && flutter analyze` 為 `No issues found!`；`flutter test test/features/news` 為 9 passed；`flutter test` 為 39 passed；`uv run --with pyyaml python flutter-dev-guide/tools/check-rules.py --files apps/mobile/lib/features/news/application/news_detail_controller.dart apps/mobile/test/features/news/news_list_test.dart` 與 `git diff --check` exit 0。未 commit，因 shared worktree 仍有不相關的 Category sheet 變更。
+
+### Task 12: Enable running the app on Android
+
+**Depends on:** F1
+**Parallel:** no — changes the Android application id and Firebase bootstrap.
+**Files:** Modify `apps/mobile/android/{settings.gradle.kts,app/build.gradle.kts,app/src/main/AndroidManifest.xml}`, move `apps/mobile/android/app/src/main/kotlin/com/example/mobile/MainActivity.kt` to `.../com/allenljf/dailynews/MainActivity.kt`, `apps/mobile/README.md`, and this task record.
+
+- [x] **Step 1: Reproduce RED** — Android still used the default `com.example.mobile` package with no `google-services.json`, so `Firebase.initializeApp()` had no options and Google sign-in could not run.
+- [x] **Step 2: Implement GREEN** — rename the application id to `com.allenljf.dailynews` (matching the iOS bundle id), apply `com.google.gms.google-services` 4.5.0 in `settings.gradle.kts` and `app/build.gradle.kts`, add the runtime `INTERNET` permission and set the app label to `Daily News`.
+- [x] **Step 3: Verify GREEN** — `cd apps/mobile && flutter build apk --debug` succeeded with a placeholder config, and the wiring was validated with `./gradlew :app:processDebugGoogleServices`.
+- [x] **Step 4: User provides Firebase config** — add the Android app in Firebase `daily-news-93f7b` and place the real `apps/mobile/android/app/google-services.json` (with the web client id) before running on a device.
+
+**完成紀錄：**
+
+- 2026-09-17：使用者要求「android 端也要可以 run」。現況：Android `applicationId`／`namespace` 仍是 `com.example.mobile`，且 repo 內沒有 Android 的 Firebase 設定，`Firebase.initializeApp()` 在 Android 上因缺 options 直接失敗。Green：`app/build.gradle.kts` 與 `settings.gradle.kts` 改用 `com.allenljf.dailynews` 並套用 `com.google.gms.google-services` 4.5.0（外掛會由 `google-services.json` 產生 `default_web_client_id`，`google_sign_in` 7.x 的 Android 實作以它作為 `serverClientId`）；`MainActivity.kt` 以 `git mv` 移到 `com/allenljf/dailynews/`；main manifest 加入 `android.permission.INTERNET` 並將 label 改為 `Daily News`。Verify：以暫時 placeholder 的 `google-services.json` 執行 `./gradlew :app:processDebugGoogleServices`（BUILD SUCCESSFUL）與 `cd apps/mobile && flutter build apk --debug`（✓ Built `build/app/outputs/flutter-apk/app-debug.apk`），驗證 package 名稱、外掛 wiring 與 Kotlin 套件搬移可編譯；placeholder 已刪除。`apps/mobile/README.md` 記錄 Firebase Console 步驟與本機 debug keystore SHA-1（`50:8D:37:A4:56:1E:63:00:A8:07:3F:B6:A9:11:61:15:06:F0:F7:97`）的取得指令。
+- 2026-09-17（續）：使用者完成 Firebase Console 兩步後，`apps/mobile/android/app/google-services.json` 已存在，含 Android app `1:855124405761:android:4b9f4ec31436982eb11a00` 與 web client `client_type: 3`（`855124405761-1lgr2a60usqrreo9e03lq89jud4ioncm`），因此 `default_web_client_id` 可被產生。Verify：啟動 `Pixel_10_Pro_XL`（Google Play，API 37.1）模擬器後 `flutter run -d emulator-5554 --no-resident` 成功建置、安裝並啟動；logcat 顯示 `FirebaseInitProvider: FirebaseApp initialization successful`，畫面為「每日新聞／使用 Google 登入」登入頁，無 Dart 例外。點擊登入鈕會進入 Google 帳號流程（`Checking info…` → `Sign in with ease`），證明 Credential Manager 接受了 client 設定；模擬器沒有已登入的 Google 帳號，因此實際登入仍須由使用者加入 allowlisted 帳號完成。`flutter test -d emulator-5554 integration_test/daily_news_flow_test.dart` 以新 package 名稱通過（`1 passed`）。未 commit，因 shared worktree 仍有不相關的 Category sheet 變更。
 
 ## Plan Self-Review
 
