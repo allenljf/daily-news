@@ -120,7 +120,8 @@ final class _FakeApiAdapter implements HttpClientAdapter {
       return _json({..._article(), 'first_seen_at': '2026-09-01T00:00:00Z'});
     }
     if (method == 'PATCH' && path == '/v1/news/article-1') {
-      server.articleIsPermanent = true;
+      final request = Map<String, Object?>.from(options.data as Map);
+      server.articleIsPermanent = request['permanent'] as bool;
       return _json(_article());
     }
     if (method == 'DELETE' && path == '/v1/news/article-1') {

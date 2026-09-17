@@ -898,6 +898,40 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 - 2026-09-17：使用者要求「android 端也要可以 run」。現況：Android `applicationId`／`namespace` 仍是 `com.example.mobile`，且 repo 內沒有 Android 的 Firebase 設定，`Firebase.initializeApp()` 在 Android 上因缺 options 直接失敗。Green：`app/build.gradle.kts` 與 `settings.gradle.kts` 改用 `com.allenljf.dailynews` 並套用 `com.google.gms.google-services` 4.5.0（外掛會由 `google-services.json` 產生 `default_web_client_id`，`google_sign_in` 7.x 的 Android 實作以它作為 `serverClientId`）；`MainActivity.kt` 以 `git mv` 移到 `com/allenljf/dailynews/`；main manifest 加入 `android.permission.INTERNET` 並將 label 改為 `Daily News`。Verify：以暫時 placeholder 的 `google-services.json` 執行 `./gradlew :app:processDebugGoogleServices`（BUILD SUCCESSFUL）與 `cd apps/mobile && flutter build apk --debug`（✓ Built `build/app/outputs/flutter-apk/app-debug.apk`），驗證 package 名稱、外掛 wiring 與 Kotlin 套件搬移可編譯；placeholder 已刪除。`apps/mobile/README.md` 記錄 Firebase Console 步驟與本機 debug keystore SHA-1（`50:8D:37:A4:56:1E:63:00:A8:07:3F:B6:A9:11:61:15:06:F0:F7:97`）的取得指令。
 - 2026-09-17（續）：使用者完成 Firebase Console 兩步後，`apps/mobile/android/app/google-services.json` 已存在，含 Android app `1:855124405761:android:4b9f4ec31436982eb11a00` 與 web client `client_type: 3`（`855124405761-1lgr2a60usqrreo9e03lq89jud4ioncm`），因此 `default_web_client_id` 可被產生。Verify：啟動 `Pixel_10_Pro_XL`（Google Play，API 37.1）模擬器後 `flutter run -d emulator-5554 --no-resident` 成功建置、安裝並啟動；logcat 顯示 `FirebaseInitProvider: FirebaseApp initialization successful`，畫面為「每日新聞／使用 Google 登入」登入頁，無 Dart 例外。點擊登入鈕會進入 Google 帳號流程（`Checking info…` → `Sign in with ease`），證明 Credential Manager 接受了 client 設定；模擬器沒有已登入的 Google 帳號，因此實際登入仍須由使用者加入 allowlisted 帳號完成。`flutter test -d emulator-5554 integration_test/daily_news_flow_test.dart` 以新 package 名稱通過（`1 passed`）。未 commit，因 shared worktree 仍有不相關的 Category sheet 變更。
 
+### Task 13: Show the original Article page in an in-app WebView
+
+**Depends on:** F5, Task 11
+**Parallel:** no — changes the News detail presentation and its routing-facing widget tests.
+**Files:** Create `apps/mobile/lib/features/news/presentation/article_web_view.dart`; modify `apps/mobile/{pubspec.yaml,pubspec.lock}`, `apps/mobile/lib/features/news/presentation/news_detail_screen.dart`, `apps/mobile/lib/l10n/{app_zh.arb,app_localizations.dart,app_localizations_zh.dart}`, `apps/mobile/test/features/news/news_list_test.dart`, `apps/mobile/integration_test/daily_news_flow_test.dart`, `docs/requirements/daily-news.md`, and this task record.
+
+- [x] **Step 1: Write the failing test** — assert the detail loads the Article's `canonicalUrl` through an overridable WebView seam, keeps the permanent/delete controls, and renders an explicit error state instead of a WebView when the URL is not HTTPS.
+- [x] **Step 2: Verify RED** — `cd apps/mobile && flutter test test/features/news/news_list_test.dart` failed because `ArticleWebView` and its provider did not exist.
+- [x] **Step 3: Implement GREEN** — added `webview_flutter`; built `ArticleWebView` that validates HTTPS before loading, renders the platform WebView with JavaScript for page rendering but no file access or bridge, blocks non-HTTP(S) navigation, and shows loading/error states with retry. The detail screen embeds it below the Article summary and moves permanent/delete to localized app-bar actions.
+- [x] **Step 4: Verify GREEN** — `cd apps/mobile && flutter analyze && flutter test` passed (40 passed); `flutter test -d 0A818455-5B3B-44A3-A7CB-9AF6681297A6 integration_test/daily_news_flow_test.dart` passed (1 passed) because no Android emulator could boot on this host.
+- [x] **Step 5: Verify guide rules and diff** — `uv run --with pyyaml python flutter-dev-guide/tools/check-rules.py --files apps/mobile/lib/features/news/presentation/article_web_view.dart apps/mobile/lib/features/news/presentation/news_detail_screen.dart apps/mobile/test/features/news/news_list_test.dart && git diff --check` passed.
+- [x] **Step 6: Commit** — intentionally not committed because the shared worktree contains unrelated changes.
+
+**完成紀錄：**
+
+- 2026-09-17：使用者要求「新聞詳情的內文不要只放連結，用 WebView 直接讀取網址顯示網頁內容」。Red：新增 `articleWebViewBuilderProvider` seam、`articleWebViewKey`、`articleWebViewBlockedKey` 斷言後，`cd apps/mobile && flutter test test/features/news/news_list_test.dart` 因 `ArticleWebView`、`ArticleWebViewBuilder`、provider 與 keys 尚未存在而編譯失敗（`Type 'ArticleWebViewBuilder' not found`、`Undefined name 'articleWebViewKey'`）。Green：加入 `webview_flutter ^4.14.1`；新增 `article_web_view.dart`，`ArticleWebView` 只接受 `https` 且 host 非空的 URL（否則顯示 `articleWebViewBlockedKey` 與「無法顯示原文網頁」），平台 WebView 以 `JavaScriptMode.unrestricted` 渲染公開新聞頁、不設 JavaScript channel 或檔案存取、`onNavigationRequest` 只放行 http(s)、主頁載入失敗時顯示 `articleWebViewErrorKey` 與重試；`news_detail_screen.dart` 在標題／來源 chip／摘要下方嵌入 `ArticleWebView(canonicalUrl)`，並把「設為永久／刪除新聞」移到有本地化 tooltip 的 AppBar icon actions。`flutter gen-l10n` 產生 `newsOriginalPageUnavailable`、`newsOriginalPageFailed`。Verify：focused detail tests 由 Red 轉 `2 passed`，`flutter analyze` 為 `No issues found!`，`flutter test` 為 `40 passed`；`flutter test -d 0A818455-5B3B-44A3-A7CB-9AF6681297A6 integration_test/daily_news_flow_test.dart` 為 `1 passed`（Android `Pixel_10_Pro_XL` emulator 啟動失敗，改用 iOS Simulator；integration test 以 provider override 取代 platform WebView）；`uv run --with pyyaml python flutter-dev-guide/tools/check-rules.py --files ...` 與 `git diff --check` exit 0。未 commit，因 shared worktree 仍含使用者進行中的 auth／theme／assets 變更。
+
+### Task 14: Toggle permanence and return to the list after deleting an Article
+
+**Depends on:** F5, Task 11, Task 13
+**Parallel:** no — changes the News detail mutation flow and its presentation.
+**Files:** Modify `apps/mobile/lib/features/news/{data/news.dart,data/news_repository.dart,data/news_remote_service.dart,application/news_detail_controller.dart,presentation/news_detail_screen.dart}`, `apps/mobile/lib/l10n/app_zh.arb`, `apps/mobile/test/features/news/news_list_test.dart`, `apps/mobile/test_support/fake_api_server.dart`, `apps/mobile/integration_test/daily_news_flow_test.dart`, `docs/requirements/daily-news.md`, and this task record.
+
+- [x] **Step 1: Write the failing test** — tapping the permanence control on an Article that is already permanent must send `permanent: false` and restore its expiry; deleting an Article must return to the Category news list with the Article gone.
+- [x] **Step 2: Verify RED** — `cd apps/mobile && flutter test test/features/news/news_list_test.dart --plain-name 'tapping permanence again restores the original expiry'` failed because the control was disabled when permanent and `NewsRepository.setPermanent` returned `void`.
+- [x] **Step 3: Implement GREEN** — `setPermanent` returns the updated `expires_at`; the detail controller exposes a single `togglePermanent()`; the app-bar control stays enabled and swaps its tooltip between make/restore; a successful delete pops the detail route, and the list is invalidated so it drops the Article.
+- [x] **Step 4: Verify GREEN** — `cd apps/mobile && flutter analyze && flutter test test/features/news && flutter test`.
+- [x] **Step 5: Verify integration and rules** — `flutter test -d <ios-simulator> integration_test/daily_news_flow_test.dart`, the guide rules check on changed files, and `git diff --check`.
+- [x] **Step 6: Commit** — intentionally not committed because the shared worktree contains unrelated changes.
+
+**完成紀錄：**
+
+- 2026-09-17：使用者要求「將新聞設為永久的按鈕，如果再點一次，應取消恢復原本的時效」與「刪除新聞後應直接返回列表」。Red：新增 Router-backed 刪除測試與 permanence toggle 測試後，`cd apps/mobile && flutter test test/features/news/news_list_test.dart` 因 `setPermanent` 仍回 `void`、control 在永久時被停用（`onPressed: null`）而失敗。Green：`NewsItem.copyWith` 接受 `expiresAt`，`NewsRepository`／`NewsRemoteService.setPermanent` 改為回傳後端的 `expires_at`；`NewsDetailController` 以單一 `togglePermanent()` 依目前狀態送出 `permanent: !isPermanent`，並用回應更新 `isPermanent`／`expiresAt`；AppBar 永久按鈕不再停用，tooltip 在「設為永久」與「恢復原本時效」間切換。刪除成功後由詳情畫面 `context.pop()` 返回列表，並保留 `newsListControllerProvider(categoryId)` invalidation 讓列表重新載入；失敗時顯示本地化 `newsDeleteFailed` SnackBar。移除不再使用的 `NewsDetailUiState.deleted`、`newsDeleted`、`savedPermanently`，新增 `restoreExpiry`、`newsDeleteFailed` 並執行 `flutter gen-l10n`。fake API PATCH 改為依 request body 設定 `articleIsPermanent`。Verify：`cd apps/mobile && flutter analyze` 為 `No issues found!`；`flutter test test/features/news` 為 11 passed；`flutter test` 為 41 passed；`flutter test -d 0A818455-5B3B-44A3-A7CB-9AF6681297A6 integration_test/daily_news_flow_test.dart` 為 `1 passed`（journey 內含 make permanent → restore → make permanent → delete → 返回列表）；`uv run --with pyyaml python flutter-dev-guide/tools/check-rules.py --files ...` 與 `git diff --check` exit 0。未 commit，因 shared worktree 仍含不相關變更。
+
 ## Plan Self-Review
 
 | Spec requirement | Covered by |
@@ -908,6 +942,7 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 | Article 關聯、去重、30 天、永久與刪除 | B2, N1, I1, I4 |
 | 來源每組最多 10、平台限制與 citations | I1–I4 |
 | 20 筆 cursor、tag filter、詳情 | N1, F5 |
+| 新聞詳情以 WebView 顯示原文網頁 | Task 13 |
 | 首頁更新時間、立即更新 dialog、單一 active Run | N2, F3, F5 |
 | GitHub 08:00、WIF、Cloud Run Job、Secret Manager | O1–O4 |
 | 可跨新對話執行的文件與 checkbox protocol | G1、全檔 task metadata |

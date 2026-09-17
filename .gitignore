@@ -1,7 +1,21 @@
+# Local environment values. Runtime secrets live in Google Secret Manager;
+# see infra/docs/secret-inventory.md.
 .env
+.env.*
+!.env.example
+
+# Credentials that must never be committed.
+*.jks
+*.keystore
+key.properties
+*.p8
+*.p12
+*.pem
+serviceAccount*.json
+**/*firebase-adminsdk*.json
+
 __pycache__/
 *.py[cod]
 .venv/
 android-dev-guide/
-docs/
 .vscode/

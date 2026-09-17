@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import 'app.dart';
 import 'core/http/http_providers.dart';
@@ -11,9 +10,10 @@ const _configuredApiBaseUrl = String.fromEnvironment(
       'https://daily-news-api-855124405761.asia-east1.run.app/v1/',
 );
 
-Future<void> main() async {
+// Firebase is initialized lazily by firebaseInitializationProvider so the first
+// Flutter frame renders immediately instead of waiting on platform channels.
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
   runApp(buildConfiguredApp(apiBaseUrl: _configuredApiBaseUrl));
 }
 

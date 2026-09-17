@@ -138,8 +138,10 @@ flutter-dev-guide/
 - 提供來源 tag filter；tag 對應 Source Setting，不以使用者可變更的自由文字做查詢鍵。
 - 每次讀取 20 筆，以 cursor 繼續載入。
 - 每筆列出標題、來源 tag、入庫時間、原始出處與期限狀態。
-- 詳情顯示原文 URL／citation、摘要、來源、入庫時間與到期時間。
-- 使用者可把 Article 設成永久，或全域刪除 Article。
+- 詳情以 App 內建 WebView 載入 Article 的 `canonicalUrl`，直接顯示原文網頁內容，不再只顯示一行連結文字；摘要、來源與 citation 仍由詳情 API 提供並顯示於原文之前。
+- WebView 只載入通過驗證的 `https` URL 且 host 非空；非 HTTPS 或畸形 URL 不載入，改顯示明確的錯誤狀態。WebView 不啟用檔案存取或通用 bridge，頁內導覽僅允許 `http`／`https`。
+- 永久為可切換狀態：第一次操作把 Article 設成永久；再次操作取消永久並恢復其原本時效。
+- 使用者可全域刪除 Article；刪除成功後直接返回 Category 新聞列表，且該 Article 不再出現於列表中。
 
 ## 6. 資料與生命週期
 

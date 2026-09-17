@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 abstract final class AppTheme {
-  static const Color _seedColor = Color(0xFF4355B9);
+  /// Matches the native iOS LaunchScreen and Android launcher background.
+  static const Color brandIndigo = Color(0xFF4355B9);
+
+  static const Color _seedColor = brandIndigo;
 
   static ThemeData light() => ThemeData(
     colorScheme: ColorScheme.fromSeed(seedColor: _seedColor),

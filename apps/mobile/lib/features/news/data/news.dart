@@ -37,14 +37,14 @@ final class NewsItem {
   final String sourceTagLabel;
   final bool isPermanent;
 
-  NewsItem copyWith({bool? isPermanent}) => NewsItem(
+  NewsItem copyWith({bool? isPermanent, DateTime? expiresAt}) => NewsItem(
     id: id,
     title: title,
     summary: summary,
     canonicalUrl: canonicalUrl,
     publishedAt: publishedAt,
     insertedAt: insertedAt,
-    expiresAt: isPermanent == true ? null : expiresAt,
+    expiresAt: isPermanent == true ? null : expiresAt ?? this.expiresAt,
     sourceTagId: sourceTagId,
     sourceTagLabel: sourceTagLabel,
     isPermanent: isPermanent ?? this.isPermanent,

@@ -6,32 +6,43 @@ import 'auth_user.dart';
 
 final class FirebaseGoogleAuthGateway implements AuthGateway {
   FirebaseGoogleAuthGateway({
-    required FirebaseAuth firebaseAuth,
+    required Future<void> firebaseReady,
     required GoogleSignIn googleSignIn,
-    required Future<void> googleSignInInitialized,
-  }) : this._(firebaseAuth, googleSignIn, googleSignInInitialized);
+    required Future<void> Function() googleSignInInitializer,
+  }) : this._(firebaseReady, googleSignIn, googleSignInInitializer);
 
   FirebaseGoogleAuthGateway._(
-    this._firebaseAuth,
+    this._firebaseReady,
     this._googleSignIn,
-    this._googleSignInInitialized,
+    this._googleSignInInitializer,
   );
 
-  final FirebaseAuth _firebaseAuth;
+  final Future<void> _firebaseReady;
   final GoogleSignIn _googleSignIn;
-  final Future<void> _googleSignInInitialized;
+  final Future<void> Function() _googleSignInInitializer;
+
+  // FirebaseAuth.instance is only safe to read once Firebase.initializeApp()
+  // has completed, which happens off the startup critical path.
+  Future<FirebaseAuth> get _firebaseAuth async {
+    await _firebaseReady;
+    return FirebaseAuth.instance;
+  }
 
   @override
-  Stream<AuthUser?> authStateChanges() => _firebaseAuth.authStateChanges().map(
-    (user) => user == null ? null : AuthUser(id: user.uid),
-  );
+  Stream<AuthUser?> authStateChanges() async* {
+    final firebaseAuth = await _firebaseAuth;
+    yield* firebaseAuth.authStateChanges().map(
+      (user) => user == null ? null : AuthUser(id: user.uid),
+    );
+  }
 
   @override
-  Future<String?> getIdToken() async => _firebaseAuth.currentUser?.getIdToken();
+  Future<String?> getIdToken() async =>
+      (await _firebaseAuth).currentUser?.getIdToken();
 
   @override
   Future<void> signInWithGoogle() async {
-    await _googleSignInInitialized;
+    await _googleSignInInitializer();
     final googleAccount = await _googleSignIn.authenticate();
     final idToken = googleAccount.authentication.idToken;
     if (idToken == null) {
@@ -39,13 +50,13 @@ final class FirebaseGoogleAuthGateway implements AuthGateway {
     }
 
     final credential = GoogleAuthProvider.credential(idToken: idToken);
-    await _firebaseAuth.signInWithCredential(credential);
+    await (await _firebaseAuth).signInWithCredential(credential);
   }
 
   @override
   Future<void> signOut() async {
-    await _firebaseAuth.signOut();
-    await _googleSignInInitialized;
+    await (await _firebaseAuth).signOut();
+    await _googleSignInInitializer();
     await _googleSignIn.signOut();
   }
 }

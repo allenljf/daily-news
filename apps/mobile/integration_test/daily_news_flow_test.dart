@@ -4,6 +4,7 @@ import 'package:daily_news_mobile/core/auth/sign_in_screen.dart';
 import 'package:daily_news_mobile/core/http/http_providers.dart';
 import 'package:daily_news_mobile/features/categories/presentation/category_grid.dart';
 import 'package:daily_news_mobile/features/categories/presentation/category_settings_sheet.dart';
+import 'package:daily_news_mobile/features/news/presentation/article_web_view.dart';
 import 'package:daily_news_mobile/features/news/presentation/manual_refresh_control.dart';
 import 'package:daily_news_mobile/features/news/presentation/news_detail_screen.dart';
 import 'package:daily_news_mobile/features/news/presentation/news_list_screen.dart';
@@ -31,6 +32,9 @@ void main() {
             Uri.parse('https://api.example.test/v1/'),
           ),
           httpClientAdapterProvider.overrideWithValue(fakeApi.adapter),
+          articleWebViewBuilderProvider.overrideWithValue(
+            (context, url) => const SizedBox.shrink(),
+          ),
         ],
         child: const DailyNewsApp(locale: Locale('zh')),
       ),
@@ -67,12 +71,22 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(makePermanentButtonKey));
     await tester.pumpAndSettle();
-    expect(find.text('已永久保存'), findsOneWidget);
+    expect(find.byTooltip('恢復原本時效'), findsOneWidget);
+    expect(fakeApi.articleIsPermanent, isTrue);
+
+    await tester.tap(find.byKey(makePermanentButtonKey));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('設為永久'), findsOneWidget);
+    expect(fakeApi.articleIsPermanent, isFalse);
+
+    await tester.tap(find.byKey(makePermanentButtonKey));
+    await tester.pumpAndSettle();
     expect(fakeApi.articleIsPermanent, isTrue);
 
     await tester.tap(find.byKey(deleteNewsButtonKey));
     await tester.pumpAndSettle();
-    expect(find.text('新聞已刪除'), findsOneWidget);
     expect(fakeApi.articleDeleted, isTrue);
+    expect(find.byType(NewsDetailScreen), findsNothing);
+    expect(find.text('新的科技新聞'), findsNothing);
   });
 }

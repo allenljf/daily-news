@@ -133,13 +133,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get makePermanent => '設為永久';
 
   @override
-  String get savedPermanently => '已永久保存';
+  String get restoreExpiry => '恢復原本時效';
 
   @override
   String get deleteNews => '刪除新聞';
 
   @override
-  String get newsDeleted => '新聞已刪除';
+  String get newsDeleteFailed => '刪除失敗，請重新嘗試';
+
+  @override
+  String get newsOriginalPageUnavailable => '無法顯示原文網頁';
+
+  @override
+  String get newsOriginalPageFailed => '原文網頁載入失敗';
 
   @override
   String get manualRefreshTitle => '確認立即更新';

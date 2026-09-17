@@ -1,4 +1,4 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -7,8 +7,12 @@ import 'auth_repository.dart';
 import 'auth_user.dart';
 import 'firebase_google_auth_gateway.dart';
 
-final firebaseAuthProvider = Provider<FirebaseAuth>(
-  (ref) => FirebaseAuth.instance,
+// Resolves after Firebase.initializeApp(), which runs off the startup critical
+// path. Anything that needs FirebaseAuth must await this first.
+final firebaseInitializationProvider = FutureProvider<void>(
+  (ref) async {
+    await Firebase.initializeApp();
+  },
 );
 
 final googleSignInProvider = Provider<GoogleSignIn>(
@@ -21,9 +25,12 @@ final googleSignInInitializationProvider = Provider<Future<void>>(
 
 final authGatewayProvider = Provider<AuthGateway>(
   (ref) => FirebaseGoogleAuthGateway(
-    firebaseAuth: ref.watch(firebaseAuthProvider),
+    firebaseReady: ref.watch(firebaseInitializationProvider.future),
     googleSignIn: ref.watch(googleSignInProvider),
-    googleSignInInitialized: ref.watch(googleSignInInitializationProvider),
+    // Read on demand so startup and tests never touch the Google plugin until
+    // the user actually signs in or out.
+    googleSignInInitializer: () =>
+        ref.read(googleSignInInitializationProvider),
   ),
 );
 

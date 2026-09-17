@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../l10n/app_localizations.dart';
-import '../theme/app_spacing.dart';
+import '../theme/branded_loading_screen.dart';
 import 'auth_providers.dart';
 import 'sign_in_screen.dart';
 
@@ -20,18 +19,7 @@ final class AuthGate extends ConsumerWidget {
               ? const SignInScreen()
               : authenticatedBuilder(context),
           error: (_, _) => const SignInScreen(),
-          loading: () => Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: AppSpacing.medium),
-                  Text(AppLocalizations.of(context).loading),
-                ],
-              ),
-            ),
-          ),
+          loading: () => const BrandedLoadingScreen(),
         );
   }
 }

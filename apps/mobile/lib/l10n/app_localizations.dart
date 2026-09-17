@@ -340,11 +340,11 @@ abstract class AppLocalizations {
   /// **'設為永久'**
   String get makePermanent;
 
-  /// No description provided for @savedPermanently.
+  /// No description provided for @restoreExpiry.
   ///
   /// In zh, this message translates to:
-  /// **'已永久保存'**
-  String get savedPermanently;
+  /// **'恢復原本時效'**
+  String get restoreExpiry;
 
   /// No description provided for @deleteNews.
   ///
@@ -352,11 +352,23 @@ abstract class AppLocalizations {
   /// **'刪除新聞'**
   String get deleteNews;
 
-  /// No description provided for @newsDeleted.
+  /// No description provided for @newsDeleteFailed.
   ///
   /// In zh, this message translates to:
-  /// **'新聞已刪除'**
-  String get newsDeleted;
+  /// **'刪除失敗，請重新嘗試'**
+  String get newsDeleteFailed;
+
+  /// No description provided for @newsOriginalPageUnavailable.
+  ///
+  /// In zh, this message translates to:
+  /// **'無法顯示原文網頁'**
+  String get newsOriginalPageUnavailable;
+
+  /// No description provided for @newsOriginalPageFailed.
+  ///
+  /// In zh, this message translates to:
+  /// **'原文網頁載入失敗'**
+  String get newsOriginalPageFailed;
 
   /// No description provided for @manualRefreshTitle.
   ///

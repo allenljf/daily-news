@@ -5,7 +5,7 @@ import 'news_remote_service.dart';
 abstract interface class NewsRepository {
   Future<NewsPage> loadNewsPage(NewsPageRequest request);
   Future<NewsDetail> loadNewsDetail(String categoryId, String newsId);
-  Future<void> setPermanent(String newsId, bool permanent);
+  Future<DateTime?> setPermanent(String newsId, bool permanent);
   Future<void> deleteNews(String newsId);
 }
 
@@ -24,7 +24,7 @@ final class RemoteNewsRepository implements NewsRepository {
       _translate(() => _service.loadDetail(categoryId, newsId));
 
   @override
-  Future<void> setPermanent(String newsId, bool permanent) =>
+  Future<DateTime?> setPermanent(String newsId, bool permanent) =>
       _translate(() => _service.setPermanent(newsId, permanent));
 
   @override

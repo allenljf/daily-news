@@ -5,6 +5,7 @@ import 'package:daily_news_mobile/features/categories/data/category_repository.d
 import 'package:daily_news_mobile/features/categories/presentation/category_settings_sheet.dart';
 import 'package:daily_news_mobile/features/news/data/news.dart';
 import 'package:daily_news_mobile/features/news/data/news_repository.dart';
+import 'package:daily_news_mobile/features/news/presentation/article_web_view.dart';
 import 'package:daily_news_mobile/features/news/presentation/news_detail_screen.dart';
 import 'package:daily_news_mobile/features/news/presentation/news_list_screen.dart';
 import 'package:daily_news_mobile/l10n/app_localizations.dart';
@@ -80,28 +81,75 @@ void main() {
   });
 
   testWidgets(
-    'detail permanence and delete actions update through controller',
+    'detail renders the original Article in a WebView with its controls',
     (tester) async {
       final repository = _FakeNewsRepository();
+      Uri? loadedUrl;
       await _pump(
         tester,
         const NewsDetailScreen(categoryId: 'category-1', newsId: 'article-1'),
         repository,
+        webViewBuilder: (context, url) {
+          loadedUrl = url;
+          return const SizedBox(key: articleWebViewKey);
+        },
       );
 
-      await tester.tap(find.text('設為永久'));
-      await tester.pumpAndSettle();
-      expect(repository.permanentIds, ['article-1']);
-      expect(find.text('已永久保存'), findsOneWidget);
-
-      await tester.tap(find.text('刪除新聞'));
-      await tester.pumpAndSettle();
-      expect(repository.deletedIds, ['article-1']);
-      expect(find.text('新聞已刪除'), findsOneWidget);
+      expect(loadedUrl, Uri.parse('https://example.test/1'));
+      expect(find.byKey(articleWebViewKey), findsOneWidget);
+      expect(find.byTooltip('設為永久'), findsOneWidget);
+      expect(find.byKey(deleteNewsButtonKey), findsOneWidget);
     },
   );
 
-  testWidgets('deleting an Article removes it from its Category list', (
+  testWidgets('tapping permanence again restores the original expiry', (
+    tester,
+  ) async {
+    final repository = _FakeNewsRepository();
+    await _pump(
+      tester,
+      const NewsDetailScreen(categoryId: 'category-1', newsId: 'article-1'),
+      repository,
+      webViewBuilder: (context, url) => const SizedBox.shrink(),
+    );
+
+    await tester.tap(find.byKey(makePermanentButtonKey));
+    await tester.pumpAndSettle();
+    expect(repository.permanentFlags, [true]);
+    expect(find.byTooltip('恢復原本時效'), findsOneWidget);
+
+    await tester.tap(find.byKey(makePermanentButtonKey));
+    await tester.pumpAndSettle();
+    expect(repository.permanentFlags, [true, false]);
+    expect(find.byTooltip('設為永久'), findsOneWidget);
+  });
+
+  testWidgets('detail refuses to load a non-HTTPS Article URL in a WebView', (
+    tester,
+  ) async {
+    final repository = _FakeNewsRepository(
+      detailItem: NewsItem(
+        id: 'article-1',
+        title: 'Article 1',
+        canonicalUrl: Uri.parse('http://example.test/1'),
+        insertedAt: DateTime(2026, 8, 30, 8, 1),
+        sourceTagId: 'source-github',
+        sourceTagLabel: 'GitHub',
+        isPermanent: false,
+      ),
+    );
+    await _pump(
+      tester,
+      const NewsDetailScreen(categoryId: 'category-1', newsId: 'article-1'),
+      repository,
+      webViewBuilder: (context, url) => const SizedBox(key: articleWebViewKey),
+    );
+
+    expect(find.byKey(articleWebViewKey), findsNothing);
+    expect(find.byKey(articleWebViewBlockedKey), findsOneWidget);
+  });
+
+  testWidgets('deleting an Article returns to its Category list', (
     tester,
   ) async {
     final repository = _FakeNewsRepository();
@@ -113,11 +161,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(deleteNewsButtonKey));
     await tester.pumpAndSettle();
-    expect(find.text('新聞已刪除'), findsOneWidget);
 
-    await tester.tap(find.byType(BackButton));
-    await tester.pumpAndSettle();
-
+    expect(repository.deletedIds, ['article-1']);
+    expect(find.byType(NewsDetailScreen), findsNothing);
     expect(find.text('Article 1'), findsNothing);
     expect(find.text('Article 2'), findsOneWidget);
   });
@@ -225,6 +271,7 @@ Future<void> _pump(
   Widget child,
   NewsRepository repository, {
   CategoryRepository? categoryRepository,
+  ArticleWebViewBuilder? webViewBuilder,
 }) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -232,6 +279,8 @@ Future<void> _pump(
         newsRepositoryProvider.overrideWithValue(repository),
         if (categoryRepository != null)
           categoryRepositoryProvider.overrideWithValue(categoryRepository),
+        if (webViewBuilder != null)
+          articleWebViewBuilderProvider.overrideWithValue(webViewBuilder),
       ],
       child: MaterialApp(
         locale: const Locale('zh'),
@@ -270,7 +319,12 @@ Future<void> _pumpNewsRoute(
   addTearDown(router.dispose);
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [newsRepositoryProvider.overrideWithValue(repository)],
+      overrides: [
+        newsRepositoryProvider.overrideWithValue(repository),
+        articleWebViewBuilderProvider.overrideWithValue(
+          (context, url) => const SizedBox.shrink(),
+        ),
+      ],
       child: MaterialApp.router(
         locale: const Locale('zh'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -319,11 +373,13 @@ Future<void> _pumpCategoryRoute(
 }
 
 final class _FakeNewsRepository implements NewsRepository {
-  _FakeNewsRepository({this.firstPageItems});
+  _FakeNewsRepository({this.firstPageItems, this.detailItem});
 
   final List<NewsItem>? firstPageItems;
+  final NewsItem? detailItem;
   final List<NewsPageRequest> pageRequests = [];
   final List<String> permanentIds = [];
+  final List<bool> permanentFlags = [];
   final List<String> deletedIds = [];
 
   @override
@@ -346,12 +402,17 @@ final class _FakeNewsRepository implements NewsRepository {
 
   @override
   Future<NewsDetail> loadNewsDetail(String categoryId, String newsId) async {
-    return NewsDetail.fromItem(_item(1), firstSeenAt: DateTime(2026));
+    return NewsDetail.fromItem(
+      detailItem ?? _item(1),
+      firstSeenAt: DateTime(2026),
+    );
   }
 
   @override
-  Future<void> setPermanent(String newsId, bool permanent) async {
+  Future<DateTime?> setPermanent(String newsId, bool permanent) async {
     permanentIds.add(newsId);
+    permanentFlags.add(permanent);
+    return permanent ? null : DateTime(2026, 10, 1);
   }
 
   @override

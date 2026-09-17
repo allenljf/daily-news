@@ -36,13 +36,12 @@ final class NewsRemoteService {
         },
       );
 
-  Future<void> setPermanent(String newsId, bool permanent) async {
-    await _apiClient.patch<Object?>(
-      'news/$newsId',
-      data: {'permanent': permanent},
-      decode: (json) => json,
-    );
-  }
+  Future<DateTime?> setPermanent(String newsId, bool permanent) =>
+      _apiClient.patch<DateTime?>(
+        'news/$newsId',
+        data: {'permanent': permanent},
+        decode: (json) => _date(_object(json)['expires_at']),
+      );
 
   Future<void> deleteNews(String newsId) => _apiClient.delete('news/$newsId');
 
