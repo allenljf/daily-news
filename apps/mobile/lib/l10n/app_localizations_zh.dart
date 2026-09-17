@@ -70,6 +70,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get addSearchWebsite => '新增搜尋網站';
 
   @override
+  String get removeSearchWebsite => '移除搜尋網站';
+
+  @override
   String get websiteNameOrUrl => '網站名稱或 URL';
 
   @override

@@ -159,6 +159,38 @@ void main() {
     expect(find.text('github.com'), findsOneWidget);
   });
 
+  testWidgets('each Source Setting can be removed', (tester) async {
+    final repository = _FakeCategoryRepository();
+    await _pumpHome(tester, repository);
+    await _openSettingsSheet(tester);
+
+    await tester.tap(find.byKey(addSourceSettingButtonKey));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(addSourceDialogFieldKey), 'github.com');
+    await tester.tap(find.widgetWithText(FilledButton, '新增'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(sourceSettingFieldKey(1)), findsOneWidget);
+
+    await tester.tap(find.byKey(removeSourceSettingButtonKey(1)));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(sourceSettingFieldKey(1)), findsNothing);
+    expect(find.text('github.com'), findsNothing);
+
+    await tester.enterText(find.byKey(categoryNameFieldKey), 'Developer News');
+    await tester.enterText(
+      find.byKey(sourceSettingFieldKey(0)),
+      'https://example.test',
+    );
+    await tester.ensureVisible(find.byKey(saveCategoryButtonKey));
+    await tester.tap(find.byKey(saveCategoryButtonKey));
+    await tester.pumpAndSettle();
+
+    expect(repository.lastDraft?.sourceSettings.map((s) => s.websiteInput), [
+      'https://example.test',
+    ]);
+  });
+
   testWidgets('save omits blank sources, closes, and refreshes Categories', (
     tester,
   ) async {

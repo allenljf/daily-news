@@ -214,6 +214,12 @@ abstract class AppLocalizations {
   /// **'新增搜尋網站'**
   String get addSearchWebsite;
 
+  /// No description provided for @removeSearchWebsite.
+  ///
+  /// In zh, this message translates to:
+  /// **'移除搜尋網站'**
+  String get removeSearchWebsite;
+
   /// No description provided for @websiteNameOrUrl.
   ///
   /// In zh, this message translates to:

@@ -20,6 +20,7 @@
   "searchWebsites": "搜尋網站",
   "unspecifiedWebsite": "未指定網站",
   "addSearchWebsite": "新增搜尋網站",
+  "removeSearchWebsite": "移除搜尋網站",
   "websiteNameOrUrl": "網站名稱或 URL",
   "add": "新增",
   "cancel": "取消",

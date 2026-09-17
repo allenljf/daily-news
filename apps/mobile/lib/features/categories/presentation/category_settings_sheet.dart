@@ -17,6 +17,9 @@ const saveCategoryButtonKey = Key('save-category-button');
 
 Key sourceSettingFieldKey(int index) => ValueKey('source-setting-$index');
 
+Key removeSourceSettingButtonKey(int index) =>
+    ValueKey('remove-source-setting-$index');
+
 final class CategorySettingsSheet extends ConsumerWidget {
   const CategorySettingsSheet({this.category, super.key});
 
@@ -164,15 +167,30 @@ final class _CategorySettingsFormState extends State<CategorySettingsForm> {
               for (var index = 0; index < _sourceControllers.length; index += 1)
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.small),
-                  child: TextFormField(
-                    key: sourceSettingFieldKey(index),
-                    controller: _sourceControllers[index],
-                    decoration: InputDecoration(
-                      labelText: index == 0
-                          ? localizations.unspecifiedWebsite
-                          : localizations.websiteNameOrUrl,
-                    ),
-                    textInputAction: TextInputAction.next,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          key: sourceSettingFieldKey(index),
+                          controller: _sourceControllers[index],
+                          decoration: InputDecoration(
+                            labelText: index == 0
+                                ? localizations.unspecifiedWebsite
+                                : localizations.websiteNameOrUrl,
+                          ),
+                          textInputAction: TextInputAction.next,
+                        ),
+                      ),
+                      IconButton(
+                        key: removeSourceSettingButtonKey(index),
+                        tooltip: localizations.removeSearchWebsite,
+                        onPressed: widget.isSubmitting
+                            ? null
+                            : () => _removeSourceSetting(index),
+                        icon: const Icon(Icons.remove_circle_outline),
+                      ),
+                    ],
                   ),
                 ),
               const SizedBox(height: AppSpacing.small),
@@ -244,6 +262,16 @@ final class _CategorySettingsFormState extends State<CategorySettingsForm> {
       return;
     }
     setState(() => _sourceControllers.add(TextEditingController(text: source)));
+  }
+
+  void _removeSourceSetting(int index) {
+    setState(() {
+      final controller = _sourceControllers.removeAt(index);
+      controller.dispose();
+      if (_sourceControllers.isEmpty) {
+        _sourceControllers.add(TextEditingController());
+      }
+    });
   }
 
   Future<void> _save() async {
