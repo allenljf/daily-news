@@ -860,12 +860,12 @@ O1 先把非秘密設定與權限寫成可審查文件，再容器化、部署�
 - [x] **Step 2: Implement** — replace the Google adapter with `SerpAPIAdapter`; the Web adapter uses it when a site has no feed (`site:<host>`), and the planner now also plans unspecified Source Settings for whole-web search.
 - [x] **Step 3: Configure** — swap the `GOOGLE_CSE_*` secrets for `SERPAPI_API_KEY` plus the non-secret `SERPAPI_WHEN` in the Job manifest, `.env.example`, and the secret inventory.
 - [x] **Step 4: Verify** — `cd backend && gofmt -l . && go vet ./... && GOFLAGS=-p=1 go test -count=1 ./...` and the container contract test pass.
-- [ ] **Step 5: Commit and deploy** — commit the verified change and publish it.
-- [ ] **Step 6: Live check** — after the user stores `SERPAPI_API_KEY`, run a homepage-only and an unspecified Source Setting to confirm the fallback returns results.
+- [x] **Step 5: Commit and deploy** — commit the verified change and publish it.
+- [x] **Step 6: Live check** — after the user stores `SERPAPI_API_KEY`, run a homepage-only and an unspecified Source Setting to confirm the fallback returns results.
 
 **完成紀錄：**
 
-- 2026-09-16：Google Custom Search JSON API 對新客戶關閉（`customsearch.googleapis.com` 已啟用、key 正確仍 403）。改用 SerpApi。新增 `SerpAPIAdapter`（`engine=google_news`、`site:<host>`／全網、`when:<window>`、`hl`/`gl` 依內容語言、每來源 10 筆、缺 key 回 `web search is not configured`、錯誤不洩漏 key）；`WebSourceAdapter` 對無 feed 網站與未指定網站都走此 fallback；`WorkPlanner` 現在也納入空白 `website_input` 的 Source Setting。設定由 `GOOGLE_CSE_*` 改為 `SERPAPI_API_KEY`（Secret）與 `SERPAPI_WHEN`（預設 `7d`）。Verify：`cd backend && gofmt -l . && go vet ./... && go test ./internal/ingestion ./cmd/daily-news-job -count=1` 通過；`uv run pytest tests/test_container_contract.py -q` 通過；`GOFLAGS=-p=1 go test -count=1 ./...` 全部 `ok`。Step 5/6 待 commit 與建好 secret 後執行。
+- 2026-09-16：Google Custom Search JSON API 對新客戶關閉（`customsearch.googleapis.com` 已啟用、key 正確仍 403）。改用 SerpApi。新增 `SerpAPIAdapter`（`engine=google_news`、`site:<host>`／全網、`when:<window>`、`hl`/`gl` 依內容語言、每來源 10 筆、缺 key 回 `web search is not configured`、錯誤不洩漏 key）；`WebSourceAdapter` 對無 feed 網站與未指定網站都走此 fallback；`WorkPlanner` 現在也納入空白 `website_input` 的 Source Setting。設定由 `GOOGLE_CSE_*` 改為 `SERPAPI_API_KEY`（Secret）與 `SERPAPI_WHEN`（預設 `7d`）。Verify：`cd backend && gofmt -l . && go vet ./... && go test ./internal/ingestion ./cmd/daily-news-job -count=1` 通過；`uv run pytest tests/test_container_contract.py -q` 通過；`GOFLAGS=-p=1 go test -count=1 ./...` 全部 `ok`。Fix commit `e33ea1c`（`feat: replace web search fallback with SerpApi Google News`）已 push，Deploy Cloud Run 成功，Job `Ready: True`、image `e33ea1c`、env 含 `SERPAPI_API_KEY` 與 `SERPAPI_WHEN=7d`。Live check：使用者建立 `SERPAPI_API_KEY` 並授權後，以真實 API 的臨時探針驗證 `site:bnext.com.tw` 回 1 筆、未指定網站的全網查詢回 10 筆繁中新聞，且錯誤不含 key；探針已刪除。未修改 OpenAPI 或 Flutter contract。
 
 
 
