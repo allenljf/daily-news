@@ -7,7 +7,8 @@ import 'core/http/http_providers.dart';
 
 const _configuredApiBaseUrl = String.fromEnvironment(
   'DAILY_NEWS_API_BASE_URL',
-  defaultValue: 'https://api.daily-news.invalid/v1/',
+  defaultValue:
+      'https://daily-news-api-855124405761.asia-east1.run.app/v1/',
 );
 
 Future<void> main() async {
