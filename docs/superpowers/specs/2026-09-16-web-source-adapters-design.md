@@ -34,10 +34,12 @@ The composite adapter returns a source error only after all eligible fallbacks
 fail. Existing per-source failure isolation, attempt accounting, 30-day expiry,
 global suppression, and URL-then-title dedupe are unchanged.
 
-YouTube keyword search uses the YouTube Data API v3 `search.list` adapter.
-Threads keyword search is out of scope for this change: Threads, Facebook and
-Instagram hosts are routed to a restricted Meta boundary that returns an
-explicit error and never reaches the general search fallback.
+YouTube is no longer ingested. `youtube.com` and `youtu.be` Source Settings are
+routed to an explicit unsupported error instead of any keyword search, and every
+adapter's YouTube candidates are dropped at the write boundary so no YouTube URL
+can be stored. Threads keyword search is out of scope for this change: Threads,
+Facebook and Instagram hosts are routed to a restricted Meta boundary that
+returns an explicit error and never reaches the general search fallback.
 
 ## Boundaries and safety
 
@@ -75,11 +77,13 @@ integration tests never call the API.
   candidate validation, and bounded error translation.
 - `WebSourceAdapter`: composes discovery then SerpApi search and exposes the
   existing `SourceAdapter.Search` method to `WorkPlanner`.
-- `HostRouter`: routes YouTube to the YouTube adapter and Facebook/Instagram/
-  Threads to the restricted Meta boundary; everything else uses the composite
-  web adapter.
+- `HostRouter`: rejects Youtube Source Settings with an explicit unsupported
+  error and routes Facebook/Instagram/Threads to the restricted Meta boundary;
+  everything else uses the composite web adapter.
+- The orchestrator write boundary drops candidates whose canonical URL is a
+  blocked platform host (currently `youtube.com`/`youtu.be`) before persistence.
 - Job composition builds the shared safe HTTP client and composite adapter. The
-  Cloud Run manifest injects the SerpApi and YouTube secrets for production.
+  Cloud Run manifest injects only the SerpApi secret for production.
 
 ## Verification
 
@@ -87,9 +91,10 @@ Tests first demonstrate: an HTML homepage discovers a relative feed; unsafe or
 cross-host discovery links are rejected; a homepage without a feed delegates to
 a fake search adapter; off-host, malformed, or over-limit search candidates are
 rejected; a missing search credential creates one failed attempt without
-preventing another source from succeeding; and YouTube builds a composed query
-with the documented limits. A Job composition test confirms active homepage
-Source Settings use the composite adapter.
+preventing another source from succeeding; a YouTube Source Setting returns the
+explicit unsupported error; and YouTube candidates from any adapter are dropped
+before persistence. A Job composition test confirms active homepage Source
+Settings use the composite adapter.
 
 Run `gofmt`, focused adapter and Job tests, `go vet ./...`, `go test ./...`,
 container build verification, and an authenticated staging Run using a

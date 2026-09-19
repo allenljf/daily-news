@@ -22,15 +22,12 @@ func TestHostRouterRoutesPlatformHostsToOfficialAdapters(t *testing.T) {
 	called := ""
 	router := NewHostRouter(
 		recordingAdapter{name: "web", called: &called},
-		recordingAdapter{name: "youtube", called: &called},
 		recordingAdapter{name: "facebook", called: &called},
 		recordingAdapter{name: "instagram", called: &called},
 		recordingAdapter{name: "threads", called: &called},
 	)
 
 	cases := map[string]string{
-		"https://www.youtube.com/@channel":   "youtube",
-		"https://youtu.be/abc":               "youtube",
 		"https://www.facebook.com/some-page": "facebook",
 		"https://www.instagram.com/someone":  "instagram",
 		"https://www.threads.net/@user":      "threads",
@@ -45,6 +42,26 @@ func TestHostRouterRoutesPlatformHostsToOfficialAdapters(t *testing.T) {
 		}
 		if called != want {
 			t.Fatalf("Search(%q) routed to %q, want %q", website, called, want)
+		}
+	}
+}
+
+func TestHostRouterRejectsYouTubeSourcesWithoutReachingTheWebAdapter(t *testing.T) {
+	called := ""
+	router := NewHostRouter(
+		recordingAdapter{name: "web", called: &called},
+		recordingAdapter{name: "facebook", called: &called},
+		recordingAdapter{name: "instagram", called: &called},
+		recordingAdapter{name: "threads", called: &called},
+	)
+
+	for _, website := range []string{"https://www.youtube.com/@channel", "https://youtu.be/abc", "https://m.youtube.com/watch?v=abc"} {
+		called = ""
+		if _, err := router.Search(context.Background(), SourceWork{WebsiteInput: website}); !errors.Is(err, ErrYouTubeUnsupported) {
+			t.Fatalf("Search(%q) err = %v, want ErrYouTubeUnsupported", website, err)
+		}
+		if called != "" {
+			t.Fatalf("Search(%q) reached adapter %q", website, called)
 		}
 	}
 }

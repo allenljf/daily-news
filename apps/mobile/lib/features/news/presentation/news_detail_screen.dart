@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/theme/app_spacing.dart';
 import '../../../l10n/app_localizations.dart';
 import '../application/news_detail_controller.dart';
 import '../data/news_repository.dart';
@@ -32,7 +31,11 @@ final class NewsDetailScreen extends ConsumerWidget {
     final item = value.asData?.value.item;
     return Scaffold(
       appBar: AppBar(
-        title: Text(localizations.newsDetail),
+        title: Text(
+          item?.title ?? localizations.newsDetail,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: [
           if (item != null) ...[
             IconButton(
@@ -58,44 +61,7 @@ final class NewsDetailScreen extends ConsumerWidget {
       body: value.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => Center(child: Text(localizations.newsLoadFailed)),
-        data: (detail) {
-          final item = detail.item;
-          final summary = item.summary;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.large,
-                  AppSpacing.large,
-                  AppSpacing.large,
-                  AppSpacing.medium,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: AppSpacing.small),
-                    Chip(label: Text(item.sourceTagLabel)),
-                    if (summary != null && summary.isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.small),
-                      Text(
-                        summary,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              Expanded(child: ArticleWebView(url: item.canonicalUrl)),
-            ],
-          );
-        },
+        data: (detail) => ArticleWebView(url: detail.item.canonicalUrl),
       ),
     );
   }

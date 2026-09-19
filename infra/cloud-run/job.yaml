@@ -29,10 +29,5 @@ spec:
                     secretKeyRef:
                       name: SERPAPI_API_KEY
                       key: latest
-                - name: YOUTUBE_API_KEY
-                  valueFrom:
-                    secretKeyRef:
-                      name: YOUTUBE_API_KEY
-                      key: latest
                 - name: SERPAPI_WHEN
                   value: 7d

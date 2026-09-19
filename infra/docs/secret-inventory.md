@@ -14,7 +14,6 @@ or issue/PR text.
 | `GITHUB_NEWS_TOKEN` | Only for higher GitHub API quota or private resources | Secret Manager → ingestion Job environment variable | GitHub adapter authorization | Git, image, GitHub Variables, Flutter, logs |
 | `SERPAPI_API_KEY` | Only when the whole-web Google News search fallback is enabled | Secret Manager → ingestion Job environment variable | SerpApi Google News requests for Source Settings without a feed | Git, image, GitHub Variables, Flutter, logs |
 | `SERPAPI_WHEN` | Optional | Job plain environment variable (not a secret) | Google News recency window such as `1d`, `7d`, `30d`; blank uses the documented default | Git, image, GitHub Variables, Flutter, logs |
-| `YOUTUBE_API_KEY` | Only when the YouTube adapter is enabled | Secret Manager → ingestion Job environment variable | YouTube Data API `search.list` requests | Git, image, GitHub Variables, Flutter, logs |
 | Facebook／Instagram／Threads platform access token | Only when an authorized Meta adapter is enabled | Secret Manager → ingestion Job environment variable | Reserved for future Meta adapters; not used for arbitrary keyword search | Git, image, GitHub Variables, Flutter, logs |
 
 Firebase client configuration is public client configuration, not a server

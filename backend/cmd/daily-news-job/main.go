@@ -80,7 +80,6 @@ func buildSourceAdapter() ingestion.SourceAdapter {
 	)
 	return ingestion.NewHostRouter(
 		ingestion.NewWebSourceAdapter(fetcher, search),
-		ingestion.NewYouTubeAdapter(fetcher, os.Getenv("YOUTUBE_API_KEY")),
 		ingestion.NewMetaAdapter("Facebook"),
 		ingestion.NewMetaAdapter("Instagram"),
 		ingestion.NewMetaAdapter("Threads"),

@@ -99,8 +99,41 @@ void main() {
       expect(find.byKey(articleWebViewKey), findsOneWidget);
       expect(find.byTooltip('設為永久'), findsOneWidget);
       expect(find.byKey(deleteNewsButtonKey), findsOneWidget);
+      expect(find.widgetWithText(AppBar, 'Article 1'), findsOneWidget);
+      expect(find.text('新聞詳情'), findsNothing);
+      expect(find.text('Summary 1'), findsNothing);
+      expect(find.widgetWithText(Chip, 'GitHub'), findsNothing);
     },
   );
+
+  testWidgets('detail toolbar keeps the Article title on one ellipsized line', (
+    tester,
+  ) async {
+    final repository = _FakeNewsRepository(
+      detailItem: NewsItem(
+        id: 'article-1',
+        title:
+            'A very long original Article title that should never wrap onto a second line in the toolbar',
+        canonicalUrl: Uri.parse('https://example.test/1'),
+        insertedAt: DateTime(2026, 8, 30, 8, 1),
+        sourceTagId: 'source-github',
+        sourceTagLabel: 'GitHub',
+        isPermanent: false,
+      ),
+    );
+    await _pump(
+      tester,
+      const NewsDetailScreen(categoryId: 'category-1', newsId: 'article-1'),
+      repository,
+      webViewBuilder: (context, url) => const SizedBox.shrink(),
+    );
+
+    final title = tester.widget<Text>(
+      find.descendant(of: find.byType(AppBar), matching: find.byType(Text)),
+    );
+    expect(title.maxLines, 1);
+    expect(title.overflow, TextOverflow.ellipsis);
+  });
 
   testWidgets('tapping permanence again restores the original expiry', (
     tester,

@@ -6,25 +6,28 @@ import (
 	"strings"
 )
 
+// ErrYouTubeUnsupported marks YouTube Source Settings as no longer ingested.
+var ErrYouTubeUnsupported = errors.New("YouTube Source Settings are not supported")
+
 // HostRouter dispatches each Source Setting to its platform adapter or the
-// composite web adapter. Meta hosts never reach the general web adapter.
+// composite web adapter. YouTube and Meta hosts never reach the general web
+// adapter.
 type HostRouter struct {
 	web       SourceAdapter
-	youtube   SourceAdapter
 	threads   SourceAdapter
 	facebook  SourceAdapter
 	instagram SourceAdapter
 }
 
-func NewHostRouter(web, youtube, facebook, instagram, threads SourceAdapter) *HostRouter {
-	return &HostRouter{web: web, youtube: youtube, facebook: facebook, instagram: instagram, threads: threads}
+func NewHostRouter(web, facebook, instagram, threads SourceAdapter) *HostRouter {
+	return &HostRouter{web: web, facebook: facebook, instagram: instagram, threads: threads}
 }
 
 func (router *HostRouter) Search(ctx context.Context, work SourceWork) (SourceSearchResult, error) {
 	host := sourceHost(work.WebsiteInput)
 	switch {
 	case matchesHost(host, "youtube.com") || host == "youtu.be":
-		return route(ctx, router.youtube, work)
+		return SourceSearchResult{}, ErrYouTubeUnsupported
 	case matchesHost(host, "threads.net") || matchesHost(host, "threads.com"):
 		return route(ctx, router.threads, work)
 	case matchesHost(host, "facebook.com"):

@@ -111,6 +111,14 @@ func (orchestrator *Orchestrator) markRunning(ctx context.Context, runID uuid.UU
 }
 
 func (result SourceSearchResult) capped() SourceSearchResult {
+	eligible := make([]CandidateArticle, 0, len(result.Candidates))
+	for _, candidate := range result.Candidates {
+		if isBlockedSourceURL(candidate.CanonicalURL) {
+			continue
+		}
+		eligible = append(eligible, candidate)
+	}
+	result.Candidates = eligible
 	if result.CandidateCount > maxCandidatesPerSource {
 		result.CandidateCount = maxCandidatesPerSource
 	}
